@@ -178,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               AppInput(
                                 controller: _controller.identifierController,
                                 labelText: 'E-mail ou Usuário',
-                                hintText: 'admin@tournament.local',
+                                hintText: 'exemplo@email.com',
                                 keyboardType: TextInputType.text,
                                 autocorrect: false,
                                 enableSuggestions: false,
