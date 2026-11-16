@@ -5,10 +5,10 @@
 class ApiEndpoints {
   ApiEndpoints._();
 
-  /// URL Base configurável (Padrão: http://localhost:5000/api/v1)
+  /// URL Base configurável (Padrão: https://tournament-manager-api-34p7.onrender.com/api/v1)
   static String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:5000/api/v1',
+    defaultValue: 'https://tournament-manager-api-34p7.onrender.com/api/v1',
   );
 
   /// Helper para alternar porta e protocolo de forma ágil durante o desenvolvimento local
