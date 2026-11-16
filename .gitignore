@@ -55,3 +55,6 @@ doc/
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Cloudflare Wrangler local cache
+.wrangler/
