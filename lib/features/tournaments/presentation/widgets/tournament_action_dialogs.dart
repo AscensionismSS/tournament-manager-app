@@ -83,6 +83,30 @@ class TournamentActionDialogs {
         return;
       }
 
+      if (!user.isSteamLinked || user.steamId == null || user.steamId!.trim().isEmpty) {
+        if (!context.mounted) return;
+        AppFeedback.showWarning(
+          context,
+          title: 'VÍNCULO STEAM OBRIGATÓRIO',
+          message:
+              'Você precisa vincular sua conta Steam ao seu perfil antes de se inscrever no campeonato.',
+        );
+        return;
+      }
+
+      final hasRoles = user.roles.isNotEmpty ||
+          (user.preferredRole != null && user.preferredRole!.trim().isNotEmpty);
+      if (!hasRoles) {
+        if (!context.mounted) return;
+        AppFeedback.showWarning(
+          context,
+          title: 'FUNÇÕES DOTA 2 OBRIGATÓRIAS',
+          message:
+              'Você precisa definir suas funções (posições de Dota 2) no perfil antes de se inscrever.',
+        );
+        return;
+      }
+
       if (!context.mounted) return;
       final confirm = await AppConfirmDialog.show(
         context,
