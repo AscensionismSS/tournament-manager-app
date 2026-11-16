@@ -89,6 +89,12 @@ class AppInput extends StatelessWidget {
         filled: true,
         fillColor: fillColor ?? AppColors.surfaceHighlight,
         labelText: labelText,
+        errorStyle: const TextStyle(
+          height: 0.01,
+          fontSize: 0,
+          color: Colors.transparent,
+        ),
+        errorMaxLines: 1,
         labelStyle: hasError
             ? TextStyle(
                 color: colorScheme.error,

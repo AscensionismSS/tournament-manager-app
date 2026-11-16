@@ -100,7 +100,13 @@ class _GameManualResultDialogState extends State<GameManualResultDialog> {
   }
 
   void _onConfirm() {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      AppFeedback.showWarning(
+        context,
+        message: 'Por favor, preencha corretamente a duração e os abates das equipes.',
+      );
+      return;
+    }
 
     if (_selectedWinnerTeamId == null || _selectedWinnerTeamId!.isEmpty) {
       AppFeedback.showWarning(

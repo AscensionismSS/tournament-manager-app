@@ -230,45 +230,7 @@ class _RegisterInviteFormState extends State<RegisterInviteForm> {
 
           // 5. Seção Opcional de Vínculo da Steam
           RegisterInviteSteamSection(controller: controller),
-          const SizedBox(height: 16),
-
-          // Feedback de erro da API (exibido apenas se houver falha de submissão)
-          if (controller.submitError != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.feedbackError.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.feedbackError.withValues(alpha: 0.4),
-                  width: 1.0,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    size: 16,
-                    color: AppColors.feedbackError,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      controller.submitError!,
-                      style: const TextStyle(
-                        color: AppColors.feedbackError,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
+          const SizedBox(height: 20),
 
           // 6. Botão de Submissão
           AppButton.primary(

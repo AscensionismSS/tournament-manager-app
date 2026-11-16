@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../feedback/app_feedback.dart';
 import '../theme/theme.dart';
 import 'app_dialog_action_button.dart';
 
@@ -102,6 +103,11 @@ class _AppPromptDialogState extends State<AppPromptDialog> {
       setState(() {
         _errorMessage = 'Este campo é obrigatório.';
       });
+      AppFeedback.showError(
+        context,
+        title: 'CAMPO OBRIGATÓRIO',
+        message: 'Por favor, preencha o campo antes de confirmar.',
+      );
       _focusNode.requestFocus();
       return;
     }
@@ -222,19 +228,29 @@ class _AppPromptDialogState extends State<AppPromptDialog> {
                       color: AppColors.textSecondary,
                       fontSize: 11,
                     ),
-                    errorText: _errorMessage,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(
+                        color: _errorMessage != null
+                            ? AppColors.feedbackError
+                            : AppColors.border,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: BorderSide(
+                        color: _errorMessage != null
+                            ? AppColors.feedbackError
+                            : AppColors.border,
+                        width: _errorMessage != null ? 1.5 : 1.0,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(
-                        color: effectiveColor,
+                        color: _errorMessage != null
+                            ? AppColors.feedbackError
+                            : effectiveColor,
                         width: 1.5,
                       ),
                     ),

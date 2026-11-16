@@ -500,6 +500,7 @@ class TournamentDetailsController extends ChangeNotifier {
           : user.displayName.trim();
 
       final body = {
+        if (user.userId.isNotEmpty) 'playerId': user.userId,
         'name': name.isNotEmpty ? name : user.email.split('@').first,
         'externalUserId': user.steamId,
         'roles': user.roles,

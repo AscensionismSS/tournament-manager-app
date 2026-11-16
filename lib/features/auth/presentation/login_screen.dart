@@ -45,20 +45,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final invalidFields = <String>[];
     if (email.isEmpty) {
-      invalidFields.add('E-mail');
-    } else if (!email.contains('@') || !email.contains('.')) {
-      invalidFields.add('E-mail (formato válido)');
+      invalidFields.add('E-mail ou Usuário');
+    } else if (email.length > 254) {
+      invalidFields.add('Identificador (máximo 254 caracteres)');
     }
     if (password.isEmpty) {
       invalidFields.add('Senha');
+    } else if (password.length < 6) {
+      invalidFields.add('Senha (mínimo de 6 caracteres)');
     }
 
     if (invalidFields.isNotEmpty) {
       _controller.formKey.currentState?.validate();
       AppFeedback.showError(
         context,
-        title: 'CAMPOS OBRIGATÓRIOS',
-        message: 'Por favor, preencha: ${invalidFields.join(', ')}.',
+        title: 'CAMPOS INVÁLIDOS',
+        message: 'Por favor, verifique: ${invalidFields.join(', ')}.',
       );
       return;
     }
