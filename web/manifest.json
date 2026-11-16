@@ -1,11 +1,11 @@
 {
-    "name": "tournament_creator_front",
-    "short_name": "tournament_creator_front",
+    "name": "Tsurus Plus+ | Tournament Creator",
+    "short_name": "Tsurus Plus+",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0A0C10",
+    "theme_color": "#E52521",
+    "description": "Plataforma Oficial de Torneios e Drafts Tsurus Plus+",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
