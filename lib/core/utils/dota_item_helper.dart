@@ -224,6 +224,13 @@ class DotaItemHelper {
     'enhancement_nimble': 'enhancement_nimble',
     'enhancementnimble': 'enhancement_nimble',
     'nimble': 'enhancement_nimble',
+    // Patch 7.42 aliases (compatibilidade com nomes de engine/display e ParseGoDota)
+    'stygian_desolator': 'stygian_desolator',
+    'stygiandesolator': 'stygian_desolator',
+    'sabatons_of_mordiggian': 'berserkers_sabatons',
+    'sabatonsofmordiggian': 'berserkers_sabatons',
+    'greater_horn_of_battle': 'horn_of_battle_greater',
+    'greaterhornofbattle': 'horn_of_battle_greater',
   };
 
   /// Retorna o caminho do asset local do item se existente, ou null se vazio/inválido.
@@ -742,6 +749,20 @@ class DotaItemHelper {
     1873: 'partisans_brand',
     1874: 'enhancement_nimble',
     1875: 'tidehunter_fish',
+    // Patch 7.42
+    1880: 'red_ledger',
+    1882: 'vile_phial',
+    1911: 'helm_of_the_hivemind',
+    1916: 'brick',
+    1917: 'balmhook',
+    1942: 'bloodslinger',
+    1944: 'ristuls_devotion',
+    1946: 'starforge',
+    1948: 'skypiercer',
+    1950: 'horn_of_battle',
+    1951: 'horn_of_battle_greater',
+    1953: 'berserkers_sabatons',
+    1955: 'caduceus',
     2091: 'tier1_token',
     2092: 'tier2_token',
     2093: 'tier3_token',
@@ -1181,5 +1202,20 @@ class DotaItemHelper {
     'wraith_pact',
     'yasha',
     'yasha_and_kaya',
+    // Patch 7.42 + Stygian Desolator
+    'balmhook',
+    'berserkers_sabatons',
+    'bloodslinger',
+    'brick',
+    'caduceus',
+    'helm_of_the_hivemind',
+    'horn_of_battle',
+    'horn_of_battle_greater',
+    'red_ledger',
+    'ristuls_devotion',
+    'skypiercer',
+    'starforge',
+    'stygian_desolator',
+    'vile_phial',
   };
 }

@@ -152,7 +152,7 @@ class _WizardStepTeamsState extends State<WizardStepTeams> {
           prefixIcon: Icons.emoji_events_rounded,
           prefixIconColor: AppColors.dotaGold,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         // 2. Moldura do Banner da Competição (Subwidget SRP)
         WizardBannerFrame(
@@ -162,7 +162,7 @@ class _WizardStepTeamsState extends State<WizardStepTeams> {
           onPickBanner: () => _pickBanner(context),
           onRestoreDefault: _restoreDefaultBanner,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         // 3. Seletor de Equipes (Subwidget SRP)
         WizardTeamCountSelector(
@@ -170,7 +170,7 @@ class _WizardStepTeamsState extends State<WizardStepTeams> {
           selectedCount: widget.state.teamCount,
           onTeamCountChanged: widget.onTeamCountChanged,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
 
         // 4. Painel Informativo de Formatos Suportados (Subwidget SRP)
         WizardFormatSupportPanel(

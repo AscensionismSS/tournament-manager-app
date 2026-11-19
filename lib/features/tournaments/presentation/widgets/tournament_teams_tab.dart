@@ -25,12 +25,12 @@ class TournamentTeamsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final crossAxisCount =
-        screenWidth < 720 ? 1 : (screenWidth < 1350 ? 2 : 4);
+        screenWidth < 720 ? 1 : (screenWidth < 1100 ? 2 : 3);
     final totalSlots = tournament.teamCount;
     final registered = tournament.teams;
 
     // Estrutura oficial fixa: 7 slots por equipe (5 titulares + 2 reservas)
-    const double cardExtent = 390.0;
+    const double cardExtent = 404.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,8 +73,7 @@ class TournamentTeamsTab extends StatelessWidget {
 
             final teamName = teamDto?.name ?? 'Vaga #${index + 1} Disponível';
 
-            return _buildTeamCard(
-              context: context,
+            return _TournamentTeamCardItem(
               slotNumber: index + 1,
               teamName: teamName,
               hasTeam: hasTeam,
@@ -85,17 +84,37 @@ class TournamentTeamsTab extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildTeamCard({
-    required BuildContext context,
-    required int slotNumber,
-    required String teamName,
-    required bool hasTeam,
-    required DraftTeamDto? draftTeam,
-  }) {
-    final starters = draftTeam?.starters ?? const [];
-    final reserves = draftTeam?.reserves ?? const [];
-    final captainId = draftTeam?.captainId;
+/// Card individual de exibição de equipe participante (Dumb UI / SRP).
+/// Apresenta o elenco oficial fixo de 7 vagas (5 Titulares + 2 Reservas)
+/// com cantos arredondados de 12px, hover refinado e fidelidade ao Design System.
+class _TournamentTeamCardItem extends StatefulWidget {
+  final int slotNumber;
+  final String teamName;
+  final bool hasTeam;
+  final DraftTeamDto? draftTeam;
+
+  const _TournamentTeamCardItem({
+    required this.slotNumber,
+    required this.teamName,
+    required this.hasTeam,
+    required this.draftTeam,
+  });
+
+  @override
+  State<_TournamentTeamCardItem> createState() =>
+      _TournamentTeamCardItemState();
+}
+
+class _TournamentTeamCardItemState extends State<_TournamentTeamCardItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final starters = widget.draftTeam?.starters ?? const [];
+    final reserves = widget.draftTeam?.reserves ?? const [];
+    final captainId = widget.draftTeam?.captainId;
 
     DraftPlayerDto? captain;
     final List<DraftPlayerDto> otherStarters = [];
@@ -113,103 +132,150 @@ class TournamentTeamsTab extends StatelessWidget {
       }
     }
 
-    return AppCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Cabeçalho Limpo da Equipe (Exibição Pura)
-          Row(
-            children: [
-              // Avatar ou Ícone do Time
-              if (hasTeam)
-                AppAvatar(
-                  name: teamName,
-                  radius: 12,
-                  backgroundColor: AppColors.canvasSurface,
-                  borderColor: AppColors.dotaGold.withValues(alpha: 0.7),
-                )
-              else
-                const Icon(
-                  Icons.hourglass_empty_rounded,
-                  size: 15,
-                  color: AppColors.textSecondary,
-                ),
-              const SizedBox(width: 8),
-
-              // Nome da Equipe Limitado e com Reticências
-              Expanded(
-                child: Text(
-                  teamName.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12.8,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? AppColors.surfaceHighlight.withValues(alpha: 0.35)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isHovered
+                ? (widget.hasTeam
+                    ? AppColors.dotaGold.withValues(alpha: 0.55)
+                    : AppColors.borderHighlight)
+                : AppColors.border.withValues(alpha: 0.80),
+            width: 1.0,
           ),
-
-          const SizedBox(height: 10),
-
-          // 2. Slot 1: Capitão (com borda e divisão)
-          _buildCaptainSlot(captain, hasTeam),
-
-          const SizedBox(height: 5),
-
-          // 3. Slots 2 a 5: Titulares
-          for (int i = 0; i < 4; i++) ...[
-            if (i > 0) const SizedBox(height: 5),
-            if (i < otherStarters.length)
-              _buildStarterFilledSlot(otherStarters[i], i + 2)
-            else
-              _buildStarterPlaceholderSlot(
-                slotIndex: i + 2,
-                hasTeam: hasTeam,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _isHovered ? 0.30 : 0.18),
+              blurRadius: _isHovered ? 12 : 6,
+              offset: Offset(0, _isHovered ? 4 : 2),
+            ),
+            if (_isHovered && widget.hasTeam)
+              BoxShadow(
+                color: AppColors.dotaGold.withValues(alpha: 0.08),
+                blurRadius: 10,
               ),
           ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Cabeçalho Limpo da Equipe com badge de contagem
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.canvasSurface.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.6),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Avatar ou Ícone do Time
+                  if (widget.hasTeam)
+                    AppAvatar(
+                      name: widget.teamName,
+                      radius: 11,
+                      backgroundColor: AppColors.canvasSurface,
+                      borderColor: AppColors.dotaGold.withValues(alpha: 0.7),
+                    )
+                  else
+                    const Icon(
+                      Icons.hourglass_empty_rounded,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  const SizedBox(width: 8),
 
-          // 4. Divisória e Slots 6 e 7: Reservas (Estrutura totalizando 7 vagas oficiais por time)
-          const SizedBox(height: 5),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              children: [
-                const Expanded(child: AppDivider.subtle()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    'RESERVAS',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                      color: AppColors.feedbackInfo.withValues(alpha: 0.75),
+                  // Nome da Equipe com Tipografia Oswald ao Centro
+                  Flexible(
+                    child: Text(
+                      widget.teamName.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Oswald',
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                const Expanded(child: AppDivider.subtle()),
-              ],
-            ),
-          ),
-          for (int r = 0; r < 2; r++) ...[
-            if (r > 0) const SizedBox(height: 5),
-            if (r < reserves.length)
-              _buildReserveFilledSlot(
-                reserves[r],
-                slotIndex: 6 + r,
-              )
-            else
-              _buildReserveEmptySlot(
-                slotIndex: 6 + r,
-                hasTeam: hasTeam,
+                ],
               ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // 2. Slot 1: Capitão (com borda e divisão)
+            _buildCaptainSlot(captain, widget.hasTeam),
+
+            const SizedBox(height: 5),
+
+            // 3. Slots 2 a 5: Titulares
+            for (int i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(height: 5),
+              if (i < otherStarters.length)
+                _buildStarterFilledSlot(otherStarters[i], i + 2)
+              else
+                _buildStarterPlaceholderSlot(
+                  slotIndex: i + 2,
+                  hasTeam: widget.hasTeam,
+                ),
+            ],
+
+            // 4. Divisória e Slots 6 e 7: Reservas (Estrutura totalizando 7 vagas oficiais por time)
+            const SizedBox(height: 5),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  const Expanded(child: AppDivider.subtle()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      'RESERVAS',
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: AppColors.feedbackInfo.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                  const Expanded(child: AppDivider.subtle()),
+                ],
+              ),
+            ),
+            for (int r = 0; r < 2; r++) ...[
+              if (r > 0) const SizedBox(height: 5),
+              if (r < reserves.length)
+                _buildReserveFilledSlot(
+                  reserves[r],
+                  slotIndex: 6 + r,
+                )
+              else
+                _buildReserveEmptySlot(
+                  slotIndex: 6 + r,
+                  hasTeam: widget.hasTeam,
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -229,10 +295,22 @@ class TournamentTeamsTab extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.shield_outlined,
-              size: 14,
-              color: AppColors.textSecondary,
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: AppColors.dotaGold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: AppColors.dotaGold.withValues(alpha: 0.4),
+                  width: 0.6,
+                ),
+              ),
+              child: const Icon(
+                Icons.star_rounded,
+                size: 11.5,
+                color: AppColors.dotaGold,
+              ),
             ),
             const SizedBox(width: 8),
             Text(
@@ -260,32 +338,25 @@ class TournamentTeamsTab extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Badge Oficial de Capitão
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: AppColors.dotaGold.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: AppColors.dotaGold.withValues(alpha: 0.7),
-                width: 0.6,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.star_rounded, size: 10, color: AppColors.dotaGold),
-                SizedBox(width: 2.5),
-                Text(
-                  'CAPITÃO',
-                  style: TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                    color: AppColors.dotaGold,
-                  ),
+          // Símbolo Oficial de Capitão (#1)
+          Tooltip(
+            message: 'Capitão da Equipe',
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: AppColors.dotaGold.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: AppColors.dotaGold.withValues(alpha: 0.75),
+                  width: 0.6,
                 ),
-              ],
+              ),
+              child: const Icon(
+                Icons.star_rounded,
+                size: 11.5,
+                color: AppColors.dotaGold,
+              ),
             ),
           ),
           const SizedBox(width: 7),
@@ -467,7 +538,9 @@ class TournamentTeamsTab extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              hasTeam ? 'Vaga Titular #$slotIndex — Aguardando Draft...' : 'Vaga Livre',
+              hasTeam
+                  ? 'Vaga Titular #$slotIndex — Aguardando Draft...'
+                  : 'Vaga Livre',
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w500,
@@ -484,7 +557,8 @@ class TournamentTeamsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildReserveFilledSlot(DraftPlayerDto player, {required int slotIndex}) {
+  Widget _buildReserveFilledSlot(DraftPlayerDto player,
+      {required int slotIndex}) {
     return Container(
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 8),

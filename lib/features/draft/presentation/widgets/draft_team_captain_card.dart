@@ -101,13 +101,20 @@ class _DraftTeamCaptainCardState extends State<DraftTeamCaptainCard> {
         child: Stack(
           children: [
             // 1. Marca d'água translúcida oficial (fidelidade com AppPlayerCard)
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0.07,
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            Positioned(
+              right: -15,
+              top: -15,
+              width: 130,
+              height: 130,
+              child: IgnorePointer(
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/company_logo.jpg',
+                    cacheWidth: 256,
+                    opacity: const AlwaysStoppedAnimation(0.04),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),
@@ -206,68 +213,52 @@ class _DraftTeamCaptainCardState extends State<DraftTeamCaptainCard> {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Lado Esquerdo: Medalha de Rank + Nome do Rank + Divisória + Símbolos das Funções (Idêntico ao Membros / AppPlayerCard)
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                DotaRankMedal(
-                  rankTier: captain?.rankTier?.toString() ?? '',
-                  size: 22,
-                  showBadgeNumber: false,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    captain != null
-                        ? captain.rankDetail.toUpperCase()
-                        : 'SEM CAPITÃO',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                      color: (captain == null || isUnranked)
-                          ? AppColors.textSecondary
-                          : AppColors.dotaGoldLight,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (effectiveRoles.isNotEmpty) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 1.0,
-                    height: 16,
-                    color: AppColors.dotaGold.withValues(alpha: 0.35),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: DotaRolesDisplay.fromStrings(
-                        rawRoles: effectiveRoles,
-                        preferredRoleKey: captain?.preferredRole,
-                        boxWidth: 22.0,
-                        boxHeight: 22.0,
-                        iconSize: 14.0,
-                        spacing: 5.0,
-                        showBoxes: true,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+          // Lado Esquerdo: Medalha de Rank + Nome do Rank
+          DotaRankMedal(
+            rankTier: captain?.rankTier?.toString() ?? '',
+            rankStars: captain?.rankStars ?? 0,
+            leaderboardRank: captain?.leaderboardRank,
+            size: 20,
+            showBadgeNumber: false,
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 130),
+            child: Text(
+              captain != null
+                  ? captain.rankDetail.toUpperCase()
+                  : 'SEM CAPITÃO',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.4,
+                color: (captain == null || isUnranked)
+                    ? AppColors.textSecondary.withValues(alpha: 0.6)
+                    : AppColors.dotaGoldLight,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
 
-          const SizedBox(width: 8),
+          const Spacer(),
 
-          // Lado Direito: Escudo + Nome da Equipe
+          // Centro/Direita: Funções Dota 2
+          if (effectiveRoles.isNotEmpty) ...[
+            DotaRolesDisplay.fromStrings(
+              rawRoles: effectiveRoles,
+              preferredRoleKey: captain?.preferredRole,
+              boxWidth: 20.0,
+              boxHeight: 20.0,
+              iconSize: 12.5,
+              spacing: 4.0,
+              showBoxes: true,
+            ),
+            const SizedBox(width: 12),
+          ],
+
+          // Extremo Direito: Escudo + Nome da Equipe
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -277,13 +268,18 @@ class _DraftTeamCaptainCardState extends State<DraftTeamCaptainCard> {
                 color: AppColors.dotaGold,
               ),
               const SizedBox(width: 6),
-              Text(
-                widget.team.name.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.6,
-                  color: Colors.white,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  widget.team.name.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -300,14 +296,8 @@ class _DraftTeamCaptainCardState extends State<DraftTeamCaptainCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar elegante (48px) com contorno dourado
-          AppAvatar(
-            radius: 24,
-            name: captain.name,
-            imageUrl: captain.avatarUrl,
-            borderWidth: 1.5,
-            borderColor: AppColors.dotaGold,
-          ),
+          // Avatar elegante (48px) com contorno dourado e fallback oficial Tsurus
+          _buildCaptainAvatar(captain, size: 48),
           const SizedBox(width: 12),
 
           // Informações do Jogador
@@ -464,6 +454,38 @@ class _DraftTeamCaptainCardState extends State<DraftTeamCaptainCard> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCaptainAvatar(DraftPlayerDto captain, {double size = 48}) {
+    final trimmedUrl = captain.avatarUrl?.trim();
+    final hasRealAvatar = trimmedUrl != null &&
+        trimmedUrl.isNotEmpty &&
+        !AppAvatar.isGenericSteamPlaceholder(trimmedUrl) &&
+        (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://'));
+
+    final Widget imageWidget = hasRealAvatar
+        ? Image.network(
+            trimmedUrl,
+            cacheWidth: (size * 2).round().clamp(64, 256),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                AppAvatar.buildTsurusSymbolFallback(size: size),
+          )
+        : AppAvatar.buildTsurusSymbolFallback(size: size);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.canvasSurface,
+        border: Border.all(
+          color: AppColors.dotaGold,
+          width: 1.5,
+        ),
+      ),
+      child: ClipOval(child: imageWidget),
     );
   }
 

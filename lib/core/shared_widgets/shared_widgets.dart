@@ -31,4 +31,6 @@ export 'tsurus_brand_title.dart';
 export 'auth_background.dart';
 export 'delayed_reveal.dart';
 export 'app_dual_action_overlay.dart';
+export 'app_infinite_scroll_footer.dart';
+export 'app_page_layout.dart';
 export 'global_notice_banner.dart';

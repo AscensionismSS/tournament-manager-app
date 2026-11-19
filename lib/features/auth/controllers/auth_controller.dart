@@ -29,6 +29,14 @@ class AuthController extends ChangeNotifier {
   LoginResponse? _currentUser;
   LoginResponse? get currentUser => _currentUser;
 
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
   void togglePasswordVisibility() {
     _isPasswordVisible = !_isPasswordVisible;
     notifyListeners();
@@ -95,6 +103,7 @@ class AuthController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     identifierController.dispose();
     passwordController.dispose();
     identifierFocus.dispose();

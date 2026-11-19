@@ -480,6 +480,7 @@ class _DraftOrderSelectionDialogState extends State<DraftOrderSelectionDialog> {
                       captain!.avatarUrl!.trim().isNotEmpty
                   ? Image.network(
                       captain.avatarUrl!,
+                      cacheWidth: 64,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.person_rounded,

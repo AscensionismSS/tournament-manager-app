@@ -81,6 +81,7 @@ class DesktopTopBar extends StatelessWidget {
                   child: ClipOval(
                     child: Image.asset(
                       'assets/images/company_logo.jpg',
+                      cacheWidth: 96,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => const Icon(
                         Icons.sports_esports_rounded,

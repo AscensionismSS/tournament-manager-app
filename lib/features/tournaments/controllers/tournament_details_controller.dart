@@ -66,6 +66,9 @@ class TournamentDetailsController extends ChangeNotifier {
   List<MatchSeriesDto> _matches = [];
   List<MatchSeriesDto> get matches => _matches;
 
+  Map<String, MatchSeriesDto> _matchesByCode = const {};
+  Map<String, MatchSeriesDto> get matchesByCode => _matchesByCode;
+
   DraftStateSnapshotDto? _draftSnapshot;
   DraftStateSnapshotDto? get draftSnapshot => _draftSnapshot;
 
@@ -93,6 +96,7 @@ class TournamentDetailsController extends ChangeNotifier {
   }
 
   bool _isDisposed = false;
+  int _fetchSeq = 0;
 
   void _startRealTimeEvents() {
     _sseSubscription = TournamentEventsService.instance
@@ -311,8 +315,11 @@ class TournamentDetailsController extends ChangeNotifier {
     return result;
   }
 
-  /// Busca campeonato, tabela de grupos e partidas em paralelo
+  /// Busca campeonato, tabela de grupos e partidas em paralelo (1 RTT ao invés de cascata sequencial)
   Future<void> fetchTournament({bool silent = false}) async {
+    if (_isDisposed) return;
+    final int seq = ++_fetchSeq;
+
     if (!silent) {
       _isLoading = true;
       _errorMessage = null;
@@ -320,42 +327,79 @@ class TournamentDetailsController extends ChangeNotifier {
     }
 
     try {
-      final responseJson = await ApiClient.get(
-        ApiEndpoints.tournamentById(tournamentId),
-        requiresAuth: true,
-      );
+      final knownDraftSessionId = _tournament?.draftSessionId;
+      final shouldFetchStandings =
+          _tournament == null || _tournament!.hasGroupStage;
+      final results = await Future.wait<dynamic>([
+        ApiClient.get(
+          ApiEndpoints.tournamentById(tournamentId),
+          requiresAuth: true,
+        ),
+        if (shouldFetchStandings)
+          _fetchStandingsSilently(seq: seq, preserveOnError: silent),
+        _fetchMatchesSilently(seq: seq, preserveOnError: silent),
+        if (knownDraftSessionId != null && knownDraftSessionId.isNotEmpty)
+          _fetchDraftSnapshotByIdSilently(
+            knownDraftSessionId,
+            seq: seq,
+            preserveOnError: silent,
+          ),
+      ]);
+      if (_isDisposed || seq != _fetchSeq) return;
+
+      final responseJson = results[0] as Map<String, dynamic>;
       final raw = responseJson['data'] is Map<String, dynamic>
           ? responseJson['data'] as Map<String, dynamic>
           : responseJson;
       _tournament = TournamentDto.fromJson(raw);
 
-      if (!_tournament!.hasGroupStage &&
-          (_activeTab == TournamentDetailTab.groupStage ||
-              _activeTab == TournamentDetailTab.matches)) {
-        _activeTab = TournamentDetailTab.overview;
+      if (!_tournament!.hasGroupStage) {
+        _standings = [];
+        if (_activeTab == TournamentDetailTab.groupStage ||
+            _activeTab == TournamentDetailTab.matches) {
+          _activeTab = TournamentDetailTab.overview;
+        }
+      } else if (!shouldFetchStandings) {
+        await _fetchStandingsSilently(seq: seq, preserveOnError: silent);
+        if (_isDisposed || seq != _fetchSeq) return;
       }
 
-      await Future.wait([
-        _fetchStandingsSilently(),
-        _fetchMatchesSilently(),
-        _fetchDraftSnapshotSilently(),
-      ]);
+      final updatedSessionId = _tournament?.draftSessionId;
+      if (updatedSessionId == null || updatedSessionId.isEmpty) {
+        _draftSnapshot = null;
+      } else if (updatedSessionId != knownDraftSessionId) {
+        await _fetchDraftSnapshotByIdSilently(
+          updatedSessionId,
+          seq: seq,
+          preserveOnError: silent,
+        );
+      }
     } on ApiException catch (e) {
-      _errorMessage = e.message;
-    } catch (e) {
-      _errorMessage = 'Não foi possível carregar os dados do campeonato: $e';
+      if (!silent && !_isDisposed && seq == _fetchSeq) {
+        _errorMessage = e.message;
+      }
+    } catch (_) {
+      if (!silent && !_isDisposed && seq == _fetchSeq) {
+        _errorMessage = 'Não foi possível carregar os dados do campeonato.';
+      }
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (!_isDisposed && seq == _fetchSeq) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
-  Future<void> _fetchStandingsSilently() async {
+  Future<void> _fetchStandingsSilently({
+    required int seq,
+    bool preserveOnError = false,
+  }) async {
     try {
       final res = await ApiClient.get(
         ApiEndpoints.tournamentStandings(tournamentId),
         requiresAuth: true,
       );
+      if (_isDisposed || seq != _fetchSeq) return;
       final rawList = res['standings'] ?? res['data'] ?? res['items'];
       if (rawList is List) {
         _standings = rawList
@@ -364,43 +408,57 @@ class TournamentDetailsController extends ChangeNotifier {
             .toList();
       }
     } catch (_) {
-      _standings = [];
+      if (!_isDisposed && seq == _fetchSeq && !preserveOnError) {
+        _standings = [];
+      }
     }
   }
 
-  Future<void> _fetchMatchesSilently() async {
+  Future<void> _fetchMatchesSilently({
+    required int seq,
+    bool preserveOnError = false,
+  }) async {
     try {
       final res = await ApiClient.get(
         ApiEndpoints.tournamentMatches(tournamentId),
         requiresAuth: true,
       );
+      if (_isDisposed || seq != _fetchSeq) return;
       final rawList = res['data'] ?? res['items'] ?? res;
       if (rawList is List) {
-        _matches = rawList
+        final parsed = rawList
             .whereType<Map<String, dynamic>>()
             .map(MatchSeriesDto.fromJson)
             .toList();
+        _matches = parsed;
+        _matchesByCode = Map<String, MatchSeriesDto>.unmodifiable({
+          for (final m in parsed) m.slotCode: m,
+        });
       }
     } catch (_) {
-      _matches = [];
+      if (!_isDisposed && seq == _fetchSeq && !preserveOnError) {
+        _matches = [];
+        _matchesByCode = const {};
+      }
     }
   }
 
-  Future<void> _fetchDraftSnapshotSilently() async {
-    final sessionId = _tournament?.draftSessionId;
-    if (sessionId == null || sessionId.isEmpty) {
-      _draftSnapshot = null;
-      return;
-    }
-
+  Future<void> _fetchDraftSnapshotByIdSilently(
+    String sessionId, {
+    required int seq,
+    bool preserveOnError = false,
+  }) async {
     try {
       final res = await ApiClient.get(
         ApiEndpoints.draftSnapshot(sessionId),
         requiresAuth: true,
       );
+      if (_isDisposed || seq != _fetchSeq) return;
       _draftSnapshot = DraftStateSnapshotDto.fromJson(res);
     } catch (_) {
-      _draftSnapshot = null;
+      if (!_isDisposed && seq == _fetchSeq && !preserveOnError) {
+        _draftSnapshot = null;
+      }
     }
   }
 

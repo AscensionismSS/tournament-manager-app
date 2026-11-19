@@ -63,6 +63,7 @@ class SeriesHeroSlot extends StatelessWidget {
       assetPath,
       width: size,
       height: size,
+      cacheWidth: 64,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) =>
           isBan ? _buildBanPlaceholderSlot() : _buildPlaceholderSlot(),

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../../core/shared_widgets/shared_widgets.dart';
 import '../../../../../core/theme/theme.dart';
@@ -10,7 +11,7 @@ import 'bracket_tree_layout.dart';
 import 'bracket_tree_painter.dart';
 
 /// Canvas Interativo Livre e Reativo da Árvore de Chaveamento.
-/// Suporta arrasto livre com o mouse (Pan 2D), zoom suave com centralização,
+/// Suporta arrasto livre com o mouse (Pan 2D), zoom suave sem reconstruir os cards (GPU Matrix),
 /// ajuste automático à largura da tela e controles flutuantes integrados.
 class BracketTreeCanvas extends StatefulWidget {
   final List<BracketSlotDto> slots;
@@ -33,23 +34,56 @@ class BracketTreeCanvas extends StatefulWidget {
 }
 
 class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
+  static const _engine = BracketTreeLayoutEngine(
+    cardWidth: 280.0,
+    cardHeight: 120.0,
+    columnGap: 44.0,
+    baseRowGap: 24.0,
+  );
+
   late final TransformationController _transformationController;
-  bool _isDragging = false;
+  final ValueNotifier<bool> _isDraggingNotifier = ValueNotifier<bool>(false);
+  BracketTreeLayoutResult? _cachedLayout;
 
   @override
   void initState() {
     super.initState();
     _transformationController = TransformationController();
-    _transformationController.addListener(_onTransformationChanged);
+    _recomputeLayoutIfNeeded();
   }
 
-  void _onTransformationChanged() {
-    if (mounted) setState(() {});
+  @override
+  void didUpdateWidget(covariant BracketTreeCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool stageChanged = oldWidget.stageName != widget.stageName;
+    if (stageChanged) {
+      // Ao trocar de filtro de chave (ex: TODAS -> GRANDE FINAL), reseta a matriz 2D
+      // para evitar que uma chave menor fique deslocada para fora da tela.
+      _transformationController.value = Matrix4.identity();
+    }
+    if (stageChanged ||
+        !listEquals(oldWidget.slots, widget.slots) ||
+        !mapEquals(oldWidget.matchesByCode, widget.matchesByCode)) {
+      _cachedLayout = null;
+      _recomputeLayoutIfNeeded();
+    }
+  }
+
+  void _recomputeLayoutIfNeeded() {
+    if (widget.slots.isEmpty) {
+      _cachedLayout = null;
+      return;
+    }
+    _cachedLayout ??= _engine.computeLayout(
+      slots: widget.slots,
+      matchesByCode: widget.matchesByCode,
+      stageName: widget.stageName,
+    );
   }
 
   @override
   void dispose() {
-    _transformationController.removeListener(_onTransformationChanged);
+    _isDraggingNotifier.dispose();
     _transformationController.dispose();
     super.dispose();
   }
@@ -86,19 +120,8 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
   Widget build(BuildContext context) {
     if (widget.slots.isEmpty) return const SizedBox.shrink();
 
-    // 1. Executa o Motor de Layout Matemático
-    const engine = BracketTreeLayoutEngine(
-      cardWidth: 280.0,
-      cardHeight: 120.0,
-      columnGap: 44.0,
-      baseRowGap: 24.0,
-    );
-
-    final layout = engine.computeLayout(
-      slots: widget.slots,
-      matchesByCode: widget.matchesByCode,
-      stageName: widget.stageName,
-    );
+    _recomputeLayoutIfNeeded();
+    final layout = _cachedLayout!;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -114,7 +137,96 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
             : math.min(totalChildHeight + controlBarHeight,
                 math.max(480.0, screenHeight * 0.72));
 
-        final currentScale = _transformationController.value.storage[0];
+        final Widget bracketContent = RepaintBoundary(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 24, 16),
+            child: SizedBox(
+              width: layout.totalWidth,
+              height: contentHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // A) Cabeçalhos das Colunas de Rodadas
+                  _buildColumnHeaders(layout),
+                  const SizedBox(height: 12),
+
+                  // B) O Canvas com Linhas no Fundo e Cards na Frente
+                  SizedBox(
+                    width: layout.totalWidth,
+                    height: layout.totalHeight,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Camada de Fundo: Linhas Conectoras Curvas (CustomPainter na GPU)
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: BracketTreePainter(
+                              connections: layout.connections,
+                              defaultLineColor: AppColors.border,
+                              activeLineColor: widget.activeLineColor,
+                            ),
+                          ),
+                        ),
+
+                        // Banners de Identificação de Etapa no Canvas
+                        for (final banner in layout.stageBanners)
+                          Positioned(
+                            left: banner.x,
+                            top: banner.y,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(banner.icon,
+                                    size: 15, color: banner.color),
+                                const SizedBox(width: 6),
+                                Text(
+                                  banner.title,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                    color: banner.color,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // Camada Superior: Cards Interativos
+                        for (final node in layout.nodes)
+                          Positioned(
+                            left: node.x,
+                            top: node.y,
+                            width: node.width,
+                            child: PlayoffSeriesCard(
+                              slot: node.slot,
+                              match: node.match,
+                              onTap: widget.onSeriesTap != null
+                                  ? () => widget.onSeriesTap!(
+                                      node.slot, node.match)
+                                  : null,
+                            ),
+                          ),
+
+                        // Camada do Troféu: Card do Campeão (Aegis Tsurus)
+                        if (layout.championNode != null)
+                          Positioned(
+                            left: layout.championNode!.x,
+                            top: layout.championNode!.y,
+                            width: layout.championNode!.width,
+                            child: AegisChampionCard(
+                              node: layout.championNode!,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
 
         return Container(
           width: double.infinity,
@@ -133,18 +245,15 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
             children: [
               // 1. Barra Reservada Fixa Superior de Navegação e Zoom (Espaço dedicado sem sobreposição)
               _buildDedicatedControlBar(
-                currentScale: currentScale,
                 totalWidth: layout.totalWidth,
                 availableWidth: availableWidth,
                 isMobile: !isDesktop,
               ),
 
-              // 2. O Canvas Livre com Pan 2D (100% desobstruído)
+              // 2. O Canvas Livre com Pan 2D (zero rebuilds da árvore durante o arrasto!)
               Expanded(
-                child: MouseRegion(
-                  cursor: _isDragging
-                      ? SystemMouseCursors.grabbing
-                      : SystemMouseCursors.grab,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _isDraggingNotifier,
                   child: InteractiveViewer(
                     transformationController: _transformationController,
                     minScale: 0.9,
@@ -156,100 +265,25 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
                         .zero, // Limite estrito: trava na borda do 1º card e no final do último card
                     constrained: false,
                     onInteractionStart: (_) {
-                      if (!_isDragging) setState(() => _isDragging = true);
+                      if (!_isDraggingNotifier.value) {
+                        _isDraggingNotifier.value = true;
+                      }
                     },
                     onInteractionEnd: (_) {
-                      if (_isDragging) setState(() => _isDragging = false);
+                      if (_isDraggingNotifier.value) {
+                        _isDraggingNotifier.value = false;
+                      }
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 24, 16),
-                      child: SizedBox(
-                        width: layout.totalWidth,
-                        height: contentHeight,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // A) Cabeçalhos das Colunas de Rodadas
-                            _buildColumnHeaders(layout),
-                            const SizedBox(height: 12),
-
-                            // B) O Canvas com Linhas no Fundo e Cards na Frente
-                            SizedBox(
-                              width: layout.totalWidth,
-                              height: layout.totalHeight,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  // Camada de Fundo: Linhas Conectoras Curvas (CustomPainter na GPU)
-                                  Positioned.fill(
-                                    child: CustomPaint(
-                                      painter: BracketTreePainter(
-                                        connections: layout.connections,
-                                        defaultLineColor: AppColors.border,
-                                        activeLineColor: widget.activeLineColor,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Banners de Identificação de Etapa no Canvas
-                                  for (final banner in layout.stageBanners)
-                                    Positioned(
-                                      left: banner.x,
-                                      top: banner.y,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(banner.icon,
-                                              size: 15, color: banner.color),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            banner.title,
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 0.6,
-                                              color: banner.color,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                  // Camada Superior: Cards Interativos
-                                  for (final node in layout.nodes)
-                                    Positioned(
-                                      left: node.x,
-                                      top: node.y,
-                                      width: node.width,
-                                      child: PlayoffSeriesCard(
-                                        slot: node.slot,
-                                        match: node.match,
-                                        onTap: widget.onSeriesTap != null
-                                            ? () => widget.onSeriesTap!(
-                                                node.slot, node.match)
-                                            : null,
-                                      ),
-                                    ),
-
-                                  // Camada do Troféu: Card do Campeão (Aegis Tsurus)
-                                  if (layout.championNode != null)
-                                    Positioned(
-                                      left: layout.championNode!.x,
-                                      top: layout.championNode!.y,
-                                      width: layout.championNode!.width,
-                                      child: AegisChampionCard(
-                                        node: layout.championNode!,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: bracketContent,
                   ),
+                  builder: (context, isDragging, viewerChild) {
+                    return MouseRegion(
+                      cursor: isDragging
+                          ? SystemMouseCursors.grabbing
+                          : SystemMouseCursors.grab,
+                      child: viewerChild,
+                    );
+                  },
                 ),
               ),
             ],
@@ -260,7 +294,6 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
   }
 
   Widget _buildDedicatedControlBar({
-    required double currentScale,
     required double totalWidth,
     required double availableWidth,
     required bool isMobile,
@@ -344,7 +377,7 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
                   variant: AppIconButtonVariant.ghost,
                 ),
 
-                // Reset (100%)
+                // Reset (100%) - Atualiza isoladamente sem reconstruir o canvas
                 Tooltip(
                   message: 'Tamanho original (100%)',
                   child: InkWell(
@@ -353,13 +386,19 @@ class _BracketTreeCanvasState extends State<BracketTreeCanvas> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 4),
-                      child: Text(
-                        '${(currentScale * 100).round()}%',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
+                      child: ValueListenableBuilder<Matrix4>(
+                        valueListenable: _transformationController,
+                        builder: (context, matrix, _) {
+                          final scalePct = (matrix.storage[0] * 100).round();
+                          return Text(
+                            '$scalePct%',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

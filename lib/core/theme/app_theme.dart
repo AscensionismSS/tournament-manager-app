@@ -5,7 +5,9 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get darkTheme {
+  static final ThemeData darkTheme = _buildDarkTheme();
+
+  static ThemeData _buildDarkTheme() {
     final baseDark = ThemeData.dark().textTheme;
     final oswaldHeadings = GoogleFonts.oswaldTextTheme(baseDark);
     final interBody = GoogleFonts.interTextTheme(baseDark);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/network/signalr_service.dart';
+import '../../../core/network/tournament_events_service.dart';
 import '../../../core/shared_widgets/shared_widgets.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/theme.dart';
@@ -31,6 +33,9 @@ class UserProfileMenu extends StatefulWidget {
     );
 
     if (confirm && context.mounted) {
+      TournamentEventsService.instance.stopGlobalStream();
+      TournamentEventsService.instance.clearAll();
+      await SignalRService.instance.stop();
       await TokenStorage.clear();
       if (context.mounted) {
         AppFeedback.showInfo(context, message: 'Sessão encerrada com sucesso.');

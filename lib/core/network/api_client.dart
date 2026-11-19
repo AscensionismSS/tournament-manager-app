@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../feedback/app_feedback.dart';
 import '../navigation/app_router.dart';
 import '../storage/token_storage.dart';
+import 'signalr_service.dart';
+import 'tournament_events_service.dart';
 
 /// Exceção padronizada para erros de comunicação com a API.
 /// Extrai e formata automaticamente respostas do padrão RFC 7807 (ProblemDetails).
@@ -24,11 +25,13 @@ class ApiException implements Exception {
 }
 
 /// Cliente HTTP desacoplado com injeção automática de Bearer Token,
-/// timeout seguro e tratamento centralizado de ProblemDetails.
+/// reutilização de conexões HTTP/Keep-Alive, timeout seguro e tratamento centralizado de ProblemDetails.
+/// 100% compatível com Flutter Web (JS/Wasm) e plataformas nativas (sem dependência de dart:io).
 class ApiClient {
   ApiClient._();
 
   static const Duration _timeout = Duration(seconds: 15);
+  static final http.Client _client = http.Client();
   static bool _isHandlingUnauthorized = false;
 
   /// Executa uma requisição POST
@@ -40,7 +43,7 @@ class ApiClient {
     final headers = await _buildHeaders(requiresAuth);
 
     try {
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse(url),
             headers: headers,
@@ -49,11 +52,6 @@ class ApiClient {
           .timeout(_timeout);
 
       return await _handleResponse(response, requiresAuth: requiresAuth);
-    } on SocketException {
-      throw const ApiException(
-        statusCode: 0,
-        message: 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
-      );
     } on TimeoutException {
       throw const ApiException(
         statusCode: 408,
@@ -61,10 +59,15 @@ class ApiClient {
       );
     } on ApiException {
       rethrow;
-    } catch (e) {
-      throw ApiException(
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+      );
+    } catch (_) {
+      throw const ApiException(
         statusCode: -1,
-        message: 'Ocorreu um erro inesperado: $e',
+        message: 'Não foi possível concluir a comunicação com o servidor.',
       );
     }
   }
@@ -78,7 +81,7 @@ class ApiClient {
     final headers = await _buildHeaders(requiresAuth);
 
     try {
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse(url),
             headers: headers,
@@ -87,11 +90,6 @@ class ApiClient {
           .timeout(_timeout);
 
       return await _handleResponse(response, requiresAuth: requiresAuth);
-    } on SocketException {
-      throw const ApiException(
-        statusCode: 0,
-        message: 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
-      );
     } on TimeoutException {
       throw const ApiException(
         statusCode: 408,
@@ -99,10 +97,15 @@ class ApiClient {
       );
     } on ApiException {
       rethrow;
-    } catch (e) {
-      throw ApiException(
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+      );
+    } catch (_) {
+      throw const ApiException(
         statusCode: -1,
-        message: 'Ocorreu um erro inesperado: $e',
+        message: 'Não foi possível concluir a comunicação com o servidor.',
       );
     }
   }
@@ -116,7 +119,7 @@ class ApiClient {
     final headers = await _buildHeaders(requiresAuth);
 
     try {
-      final response = await http
+      final response = await _client
           .patch(
             Uri.parse(url),
             headers: headers,
@@ -125,11 +128,6 @@ class ApiClient {
           .timeout(_timeout);
 
       return await _handleResponse(response, requiresAuth: requiresAuth);
-    } on SocketException {
-      throw const ApiException(
-        statusCode: 0,
-        message: 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
-      );
     } on TimeoutException {
       throw const ApiException(
         statusCode: 408,
@@ -137,10 +135,15 @@ class ApiClient {
       );
     } on ApiException {
       rethrow;
-    } catch (e) {
-      throw ApiException(
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+      );
+    } catch (_) {
+      throw const ApiException(
         statusCode: -1,
-        message: 'Ocorreu um erro inesperado: $e',
+        message: 'Não foi possível concluir a comunicação com o servidor.',
       );
     }
   }
@@ -153,7 +156,7 @@ class ApiClient {
     final headers = await _buildHeaders(requiresAuth);
 
     try {
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse(url),
             headers: headers,
@@ -161,11 +164,6 @@ class ApiClient {
           .timeout(_timeout);
 
       return await _handleResponse(response, requiresAuth: requiresAuth);
-    } on SocketException {
-      throw const ApiException(
-        statusCode: 0,
-        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
-      );
     } on TimeoutException {
       throw const ApiException(
         statusCode: 408,
@@ -173,10 +171,15 @@ class ApiClient {
       );
     } on ApiException {
       rethrow;
-    } catch (e) {
-      throw ApiException(
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+      );
+    } catch (_) {
+      throw const ApiException(
         statusCode: -1,
-        message: 'Ocorreu um erro inesperado: $e',
+        message: 'Não foi possível concluir a comunicação com o servidor.',
       );
     }
   }
@@ -190,7 +193,7 @@ class ApiClient {
     final headers = await _buildHeaders(requiresAuth);
 
     try {
-      final response = await http
+      final response = await _client
           .delete(
             Uri.parse(url),
             headers: headers,
@@ -199,11 +202,6 @@ class ApiClient {
           .timeout(_timeout);
 
       return await _handleResponse(response, requiresAuth: requiresAuth);
-    } on SocketException {
-      throw const ApiException(
-        statusCode: 0,
-        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
-      );
     } on TimeoutException {
       throw const ApiException(
         statusCode: 408,
@@ -211,10 +209,15 @@ class ApiClient {
       );
     } on ApiException {
       rethrow;
-    } catch (e) {
-      throw ApiException(
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+      );
+    } catch (_) {
+      throw const ApiException(
         statusCode: -1,
-        message: 'Ocorreu um erro inesperado: $e',
+        message: 'Não foi possível concluir a comunicação com o servidor.',
       );
     }
   }
@@ -252,15 +255,10 @@ class ApiClient {
         ),
       );
 
-      final streamedResponse = await request.send().timeout(_timeout);
+      final streamedResponse = await _client.send(request).timeout(_timeout);
       final response = await http.Response.fromStream(streamedResponse);
 
       return await _handleResponse(response, requiresAuth: requiresAuth);
-    } on SocketException {
-      throw const ApiException(
-        statusCode: 0,
-        message: 'Não foi possível conectar ao servidor para upload.',
-      );
     } on TimeoutException {
       throw const ApiException(
         statusCode: 408,
@@ -268,10 +266,15 @@ class ApiClient {
       );
     } on ApiException {
       rethrow;
-    } catch (e) {
-      throw ApiException(
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        message: 'Não foi possível conectar ao servidor para upload.',
+      );
+    } catch (_) {
+      throw const ApiException(
         statusCode: -1,
-        message: 'Falha durante o upload: $e',
+        message: 'Falha durante o upload do arquivo.',
       );
     }
   }
@@ -337,6 +340,9 @@ class ApiClient {
     _isHandlingUnauthorized = true;
 
     try {
+      TournamentEventsService.instance.stopGlobalStream();
+      TournamentEventsService.instance.clearAll();
+      await SignalRService.instance.stop();
       await TokenStorage.clear();
       AppRouter.router.go('/login');
 

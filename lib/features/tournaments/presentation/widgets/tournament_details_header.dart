@@ -54,52 +54,31 @@ class TournamentDetailsHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Botão "Voltar para Campeonatos" elegante no padrão suave com toque Vermelho Neon
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onBack,
-            borderRadius: BorderRadius.circular(6),
-            hoverColor: AppColors.primaryNeon.withValues(alpha: 0.12),
-            splashColor: AppColors.primaryNeon.withValues(alpha: 0.20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.primaryNeon.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppColors.primaryNeon.withValues(alpha: 0.35),
-                  width: 0.8,
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.arrow_back_rounded,
-                    size: 15,
-                    color: AppColors.primaryNeon,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'VOLTAR PARA CAMPEONATOS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // 1. Botão Canônico Unificado de Retorno (AppBackButton)
+        AppBackButton(
+          label: 'VOLTAR PARA CAMPEONATOS',
+          onPressed: onBack,
         ),
         const SizedBox(height: 10),
 
-        // 2. Card Principal com Banner e Metadados
-        AppCard(
-          padding: EdgeInsets.zero,
+        // 2. Card Principal com Banner e Metadados (Cantos canônicos 12px)
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.border.withValues(alpha: 0.80),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -112,10 +91,13 @@ class TournamentDetailsHeader extends StatelessWidget {
               // Faixa Inferior de Metadados e Ações Rápidas
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
+                decoration: BoxDecoration(
+                  color: AppColors.canvasSurface.withValues(alpha: 0.50),
                   border: Border(
-                    top: BorderSide(color: AppColors.border, width: 1),
+                    top: BorderSide(
+                      color: AppColors.border.withValues(alpha: 0.55),
+                      width: 1,
+                    ),
                   ),
                 ),
                 child: Wrap(

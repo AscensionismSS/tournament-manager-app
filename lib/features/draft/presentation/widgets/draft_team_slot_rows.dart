@@ -51,7 +51,7 @@ class DraftCaptainSlotRow extends StatelessWidget {
     if (substitutingPlayerId == cap.id) {
       return DraftSubstitutionActiveSlotRow(
         isCaptain: true,
-        slotBadge: 'CAPITÃO',
+        slotBadge: '★',
         playerName: cap.name,
         onCancelSubstitution: onCancelSubstitution,
       );
@@ -70,31 +70,24 @@ class DraftCaptainSlotRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.dotaGold.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: AppColors.dotaGold.withValues(alpha: 0.7),
-                width: 0.6,
-              ),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.star_rounded, size: 11, color: AppColors.dotaGold),
-                SizedBox(width: 3),
-                Text(
-                  'CAPITÃO',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                    color: AppColors.dotaGold,
-                  ),
+          // Símbolo Oficial de Capitão (#1)
+          Tooltip(
+            message: 'Capitão da Equipe',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.dotaGold.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: AppColors.dotaGold.withValues(alpha: 0.75),
+                  width: 0.6,
                 ),
-              ],
+              ),
+              child: const Icon(
+                Icons.star_rounded,
+                size: 12.0,
+                color: AppColors.dotaGold,
+              ),
             ),
           ),
           const SizedBox(width: 8),

@@ -115,7 +115,7 @@ class _RegisterInviteScreenState extends State<RegisterInviteScreen> {
       backgroundColor: AppColors.background,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: FocusScope.of(context).unfocus,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: AuthBackground(
           child: SafeArea(
             child: Center(

@@ -33,27 +33,28 @@ class WizardTeamCountSelector extends StatelessWidget {
         const Text(
           'QUANTIDADE DE EQUIPES',
           style: TextStyle(
-            fontSize: 11.5,
+            fontSize: 11.0,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
             color: AppColors.textSecondary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
 
         Row(
           children: supportedCounts.map((count) {
             final isSelected = selectedCount == count;
             return Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: InkWell(
                   onTap: () => onTeamCountChanged(count),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 140),
-                    height: 76,
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    height: 68,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.primaryNeon.withValues(alpha: 0.16)
@@ -72,19 +73,25 @@ class WizardTeamCountSelector extends StatelessWidget {
                         Text(
                           '$count',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.w900,
-                            color: isSelected ? Colors.white : AppColors.textSecondary,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textSecondary,
                             height: 1.0,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           _getTeamSubtitle(count),
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected ? AppColors.primaryNeon : AppColors.textSecondary,
+                            fontSize: 10.5,
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isSelected
+                                ? AppColors.primaryNeon
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],

@@ -32,21 +32,12 @@ class _TournamentPlayerPoolTabState extends State<TournamentPlayerPoolTab> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
-    if (_searchQuery != query) {
-      setState(() => _searchQuery = query);
-    }
   }
 
   Future<void> _handleOpenProfile(DraftPlayerSummaryDto player) async {
@@ -81,7 +72,7 @@ class _TournamentPlayerPoolTabState extends State<TournamentPlayerPoolTab> {
     final totalPool = widget.tournament.draftPlayerPool;
     final filtered = _filteredPlayers;
     final isMobile = MediaQuery.sizeOf(context).width < 720;
-    const double cardHeight = 176.0;
+    const double cardHeight = 152.0;
 
     if (totalPool.isEmpty) {
       return _buildEmptyState(

@@ -134,7 +134,9 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final currentRoute = GoRouterState.of(context).uri.path;
+    final routerUri = GoRouterState.of(context).uri;
+    final currentRoute = routerUri.path;
+    AppModeState.recordRoute(routerUri.toString());
     final title = _resolveTitle(currentRoute);
     const sidebarWidth = 250.0;
 
@@ -171,47 +173,76 @@ class _MainShellState extends State<MainShell> {
               Expanded(
                 child: Stack(
                   children: [
-                    // Conteúdo da página ocupa sempre a largura total
+                    // Conteúdo da página ocupa sempre a largura total (camada isolada para zero lag)
                     Positioned.fill(
-                      child: widget.child,
+                      child: RepaintBoundary(
+                        child: widget.child,
+                      ),
                     ),
 
-                    // Backdrop suave translúcido quando a SideBar estiver aberta
-                    if (_isSidebarOpen)
-                      Positioned.fill(
-                        child: GestureDetector(
-                          onTap: _closeSidebar,
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            color: Colors.black.withValues(alpha: 0.45),
+                    // Backdrop translúcido com fade suave quando a SideBar estiver aberta.
+                    // Clicar em qualquer ponto do meio da tela fecha a barra lateral.
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring: !_isSidebarOpen,
+                        child: AnimatedOpacity(
+                          opacity: _isSidebarOpen ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          child: GestureDetector(
+                            onTap: _closeSidebar,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              color: Colors.black.withValues(alpha: 0.45),
+                            ),
                           ),
                         ),
                       ),
+                    ),
 
                     // SideBar deslizando por cima do conteúdo (Overlay)
                     AnimatedPositioned(
-                      duration: const Duration(milliseconds: 230),
+                      duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOutCubic,
                       left: _isSidebarOpen ? 0 : -sidebarWidth,
                       top: 0,
                       bottom: 0,
                       width: sidebarWidth,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          boxShadow: _isSidebarOpen
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.60),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                    offset: const Offset(4, 0),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: DesktopSidebar(
-                          currentRoute: currentRoute,
-                          onNavigate: _closeSidebar,
+                      child: ExcludeFocus(
+                        excluding: !_isSidebarOpen,
+                        child: ExcludeSemantics(
+                          excluding: !_isSidebarOpen,
+                          child: IgnorePointer(
+                            ignoring: !_isSidebarOpen,
+                            child: RepaintBoundary(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  boxShadow: _isSidebarOpen
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.50),
+                                            blurRadius: 16,
+                                            spreadRadius: 1,
+                                            offset: const Offset(4, 0),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: DesktopSidebar(
+                                  currentRoute: currentRoute,
+                                  onNavigate: () {
+                                    // No desktop/tablet, a sidebar permanece aberta para permitir
+                                    // navegar entre itens livremente sem piscar nem fechar de repente.
+                                    // Apenas no mobile (< 720px) fecha após o clique para não obstruir a tela.
+                                    final isMobile = MediaQuery.sizeOf(context).width < 720;
+                                    if (isMobile) {
+                                      _closeSidebar();
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

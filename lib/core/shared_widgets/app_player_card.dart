@@ -4,12 +4,15 @@ import 'package:flutter/services.dart';
 import '../feedback/app_feedback.dart';
 import '../theme/theme.dart';
 import '../utils/safe_url_launcher.dart';
+import 'app_avatar.dart';
 import 'dota_rank_medal.dart';
 import 'dota_role_icons.dart';
 
 /// Card unificado e oficial de exibição de Jogadores Competitivos / Membros.
-/// Composto por sub-widgets modulares seguindo estritamente as diretrizes de SRP do AGENTS.md.
-class AppPlayerCard extends StatelessWidget {
+/// Hierarquia limpa em 2 zonas:
+/// - Zona Principal: Avatar (com fallback para o símbolo Tsurus sem "?" nem iniciais) + Nickname protagonista + Medalha & Funções.
+/// - Rodapé Sutil: Dota ID discreto copiável à esquerda e links compactos (Steam / OpenDota) à direita.
+class AppPlayerCard extends StatefulWidget {
   final String nickname;
   final String? avatarUrl;
   final String? initials;
@@ -55,352 +58,269 @@ class AppPlayerCard extends StatelessWidget {
     this.onOpenSteamProfile,
   });
 
-  String get effectiveInitials {
-    if (initials != null && initials!.isNotEmpty) return initials!;
-    final clean = nickname.trim();
-    if (clean.isEmpty) return '?';
-    final parts = clean.split(' ');
-    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return clean.substring(0, clean.length >= 2 ? 2 : 1).toUpperCase();
-  }
+  @override
+  State<AppPlayerCard> createState() => _AppPlayerCardState();
+}
+
+class _AppPlayerCardState extends State<AppPlayerCard> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final accentColor = isMe
-        ? AppColors.primaryNeon
-        : (isCaptain ? AppColors.dotaGold : AppColors.dotaGold);
+    final bool isUnranked =
+        widget.rankDetail.toUpperCase() == 'SEM RANK' || widget.rankDetail.isEmpty;
 
-    final isUnranked = rankDetail.toUpperCase() == 'SEM RANK' || rankDetail.isEmpty;
+    final Color borderColor = widget.isMe
+        ? AppColors.primaryNeon.withValues(alpha: _isHovered ? 0.95 : 0.72)
+        : widget.isCaptain
+            ? AppColors.dotaGold.withValues(alpha: _isHovered ? 0.85 : 0.55)
+            : _isHovered
+                ? AppColors.dotaGold.withValues(alpha: 0.42)
+                : AppColors.border.withValues(alpha: 0.80);
 
     return RepaintBoundary(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          splashColor: accentColor.withValues(alpha: 0.1),
-          highlightColor: accentColor.withValues(alpha: 0.05),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 156),
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isMe
-                    ? AppColors.primaryNeon.withValues(alpha: 0.75)
-                    : (isCaptain
-                        ? AppColors.dotaGold.withValues(alpha: 0.6)
-                        : AppColors.border),
-                width: 0.85,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            splashColor: AppColors.dotaGold.withValues(alpha: 0.08),
+            highlightColor: AppColors.dotaGold.withValues(alpha: 0.04),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              constraints: const BoxConstraints(minHeight: 140),
+              decoration: BoxDecoration(
+                color: _isHovered
+                    ? AppColors.surfaceHighlight.withValues(alpha: 0.55)
+                    : colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: borderColor,
+                  width: (widget.isMe || widget.isCaptain) ? 1.15 : 1.0,
                 ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                // 1. Marca d'água translúcida
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    cacheWidth: 320,
-                    opacity: const AlwaysStoppedAnimation(0.08),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: _isHovered ? 0.34 : 0.18),
+                    blurRadius: _isHovered ? 14 : 6,
+                    offset: Offset(0, _isHovered ? 4 : 2),
                   ),
-                ),
-
-                // 2. Gradiente suave de profundidade
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          colorScheme.surface.withValues(alpha: 0.95),
-                          colorScheme.surface.withValues(alpha: 0.90),
-                          colorScheme.surface.withValues(alpha: 0.96),
-                        ],
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  // Marca d'água oficial do símbolo da logo do site (Tsurus)
+                  Positioned(
+                    right: -10,
+                    top: -10,
+                    width: 115,
+                    height: 115,
+                    child: IgnorePointer(
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/company_logo.jpg',
+                          cacheWidth: 256,
+                          opacity: const AlwaysStoppedAnimation(0.04),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                // 3. Estrutura Principal dos 3 Blocos Modulares
-                Positioned.fill(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Bloco 1: Faixa Superior de Rank + Funções + Dota ID
-                      _PlayerCardHeaderStrip(
-                        rankDetail: rankDetail,
-                        rankStars: rankStars,
-                        leaderboardRank: leaderboardRank,
-                        roles: roles,
-                        preferredRole: preferredRole,
-                        steamId: steamId,
-                        isUnranked: isUnranked,
-                        onCopySteamId: onCopySteamId,
-                      ),
-
-                      // Bloco 2: Perfil do Jogador (Avatar + Nickname + Badge Capitão)
-                      Expanded(
-                        child: _PlayerCardProfileSection(
-                          nickname: nickname,
-                          subtitle: subtitle,
-                          avatarUrl: avatarUrl,
-                          effectiveInitials: effectiveInitials,
-                          isCaptain: isCaptain,
-                          isMe: isMe,
-                          accentColor: accentColor,
+                  // Conteúdo estruturado em 3 zonas limpas: Faixinha no Topo, Identidade e Rodapé
+                  Positioned.fill(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Faixinha no Topo (Rank na extrema esquerda e Funções Dota 2 no extremo direito)
+                        _PlayerCardTopStrip(
+                          rankDetail: widget.rankDetail,
+                          rankStars: widget.rankStars,
+                          leaderboardRank: widget.leaderboardRank,
+                          isUnranked: isUnranked,
+                          roles: widget.roles,
+                          preferredRole: widget.preferredRole,
+                          isCaptain: widget.isCaptain,
                         ),
-                      ),
 
-                      // Divisória estética horizontal
-                      _buildDivider(colorScheme, isCaptain, isMe),
-
-                      // Bloco 3: Botões Externos (Steam e OpenDota)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 9, 16, 11),
-                        child: _PlayerCardExternalButtons(
-                          steamProfileUrl: steamProfileUrl,
-                          openDotaUrl: openDotaUrl,
-                          steamId: steamId,
-                          onOpenSteamProfile: onOpenSteamProfile,
-                          onOpenOpenDota: onOpenOpenDota,
+                        // Zona 1: Identidade Principal (Avatar + Nickname Protagonista Ampliado)
+                        Expanded(
+                          child: _PlayerCardIdentityBody(
+                            nickname: widget.nickname,
+                            subtitle: widget.subtitle,
+                            avatarUrl: widget.avatarUrl,
+                            isCaptain: widget.isCaptain,
+                            isMe: widget.isMe,
+                          ),
                         ),
-                      ),
-                    ],
+
+                        // Zona 2: Rodapé Sutil com Botões Contornados (ID à esquerda + Ações Steam/OpenDota à direita)
+                        _PlayerCardCompactFooter(
+                          steamId: widget.steamId,
+                          steamProfileUrl: widget.steamProfileUrl,
+                          openDotaUrl: widget.openDotaUrl,
+                          onCopySteamId: widget.onCopySteamId,
+                          onOpenSteamProfile: widget.onOpenSteamProfile,
+                          onOpenOpenDota: widget.onOpenOpenDota,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-
-  Widget _buildDivider(ColorScheme colorScheme, bool isCaptain, bool isMe) {
-    return Container(
-      height: 1.0,
-      width: double.infinity,
-      color: AppColors.border.withValues(alpha: 0.65),
-    );
-  }
 }
 
-/// Bloco 1: Faixa superior (Rank, Medalha, Funções e Dota ID)
-class _PlayerCardHeaderStrip extends StatelessWidget {
+/// Faixinha Superior: Rank na extrema esquerda e Funções Dota 2 no extremo direito
+class _PlayerCardTopStrip extends StatelessWidget {
   final String rankDetail;
   final int rankStars;
   final int? leaderboardRank;
+  final bool isUnranked;
   final List<String> roles;
   final String? preferredRole;
-  final String? steamId;
-  final bool isUnranked;
-  final VoidCallback? onCopySteamId;
+  final bool isCaptain;
 
-  const _PlayerCardHeaderStrip({
+  const _PlayerCardTopStrip({
     required this.rankDetail,
     required this.rankStars,
     this.leaderboardRank,
+    required this.isUnranked,
     required this.roles,
     this.preferredRole,
-    this.steamId,
-    required this.isUnranked,
-    this.onCopySteamId,
+    required this.isCaptain,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
-    final hasId = steamId != null && steamId!.trim().isNotEmpty;
-    final displayId = hasId ? steamId! : null;
-
     return Container(
-      height: 38,
-      width: double.infinity,
-      padding: const EdgeInsets.only(left: 12, right: 8),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: AppColors.dotaGold.withValues(alpha: isUnranked ? 0.06 : 0.12),
+        color: AppColors.canvasSurface.withValues(alpha: 0.52),
         border: Border(
           bottom: BorderSide(
-            color: isUnranked
-                ? colorScheme.outline.withValues(alpha: 0.22)
-                : AppColors.dotaGold.withValues(alpha: 0.38),
-            width: 1.0,
+            color: AppColors.border.withValues(alpha: 0.40),
+            width: 0.85,
           ),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Grupo Esquerdo: Medalha + Nome do Rank + Símbolos das Funções
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                DotaRankMedal(
-                  rankTier: rankDetail,
-                  rankStars: rankStars,
-                  leaderboardRank: leaderboardRank,
-                  size: 22,
-                  showBadgeNumber: false,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    rankDetail,
-                    style: textTheme.bodySmall?.copyWith(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.w900,
-                      color: isUnranked
-                          ? colorScheme.onSurface.withValues(alpha: 0.6)
-                          : AppColors.dotaGoldLight,
-                      letterSpacing: 0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (roles.isNotEmpty) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 1.0,
-                    height: 16,
-                    color: AppColors.dotaGold.withValues(alpha: 0.35),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: DotaRolesDisplay.fromStrings(
-                        rawRoles: roles,
-                        preferredRoleKey: preferredRole,
-                        boxWidth: 22.0,
-                        boxHeight: 22.0,
-                        iconSize: 14.0,
-                        spacing: 5.0,
-                        showBoxes: true,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+          // Extrema Esquerda: Badge de Capitão (se houver) + Medalha e Nome do Rank
+          if (isCaptain) ...[
+            _buildRolePill(
+              label: 'CAPITÃO',
+              icon: Icons.stars_rounded,
+              color: AppColors.dotaGold,
+            ),
+            const SizedBox(width: 8),
+          ],
+
+          DotaRankMedal(
+            rankTier: rankDetail,
+            rankStars: rankStars,
+            leaderboardRank: leaderboardRank,
+            size: 20,
+            showBadgeNumber: false,
+          ),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              rankDetail,
+              style: TextStyle(
+                fontSize: 12.0,
+                fontWeight: FontWeight.w800,
+                color: isUnranked
+                    ? AppColors.textSecondary.withValues(alpha: 0.6)
+                    : AppColors.dotaGoldLight,
+                letterSpacing: 0.35,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
 
-          // Grupo Direito: Dota ID discreto com cópia
-          if (displayId != null) ...[
-            const SizedBox(width: 8),
-            _buildDotaIdChip(context, displayId),
-          ],
+          const Spacer(),
+
+          // Extremo Direito: Funções Dota 2 (empurradas pelo Spacer até a borda direita)
+          if (roles.isNotEmpty)
+            DotaRolesDisplay.fromStrings(
+              rawRoles: roles,
+              preferredRoleKey: preferredRole,
+              boxWidth: 20.0,
+              boxHeight: 20.0,
+              iconSize: 12.5,
+              spacing: 4.0,
+              showBoxes: true,
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildDotaIdChip(BuildContext context, String id) {
-    return Tooltip(
-      message: 'Copiar Dota ID ($id) para o jogo',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onCopySteamId ??
-              () {
-                Clipboard.setData(ClipboardData(text: id));
-                AppFeedback.showSuccess(
-                  context,
-                  title: 'DOTA ID COPIADO',
-                  message: 'Dota ID ($id) copiado! Cole no jogo para adicionar.',
-                );
-              },
-          borderRadius: BorderRadius.circular(5),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.canvasSurface.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                color: AppColors.border,
-                width: 0.85,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  'ID: ',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary.withValues(alpha: 0.8),
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                Text(
-                  id,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                const Icon(
-                  Icons.content_copy_rounded,
-                  size: 11.5,
-                  color: AppColors.textSecondary,
-                ),
-              ],
+  Widget _buildRolePill({
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.55), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 10),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.4,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Bloco 2: Perfil do Jogador (Avatar + Nickname + Badge Capitão)
-class _PlayerCardProfileSection extends StatelessWidget {
+/// Zona 1: Identidade Principal do Jogador (Avatar + Nickname Protagonista Ampliado)
+class _PlayerCardIdentityBody extends StatelessWidget {
   final String nickname;
   final String? subtitle;
   final String? avatarUrl;
-  final String effectiveInitials;
   final bool isCaptain;
   final bool isMe;
-  final Color accentColor;
 
-  const _PlayerCardProfileSection({
+  const _PlayerCardIdentityBody({
     required this.nickname,
     this.subtitle,
     this.avatarUrl,
-    required this.effectiveInitials,
     required this.isCaptain,
     required this.isMe,
-    required this.accentColor,
   });
 
   @override
@@ -410,72 +330,50 @@ class _PlayerCardProfileSection extends StatelessWidget {
     final textTheme = theme.textTheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar mais leve e proporcional (52px)
-          _buildAvatar(colorScheme, size: 52),
-          const SizedBox(width: 13),
-          // Informações do Jogador
+          _buildAvatar(size: 54),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  nickname,
-                  style: textTheme.titleMedium?.copyWith(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    color: isMe
-                        ? AppColors.primaryNeon
-                        : (isCaptain ? AppColors.dotaGold : Colors.white),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (subtitle != null &&
-                    subtitle!.trim().isNotEmpty &&
-                    subtitle!.trim() != nickname.trim()) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: textTheme.bodySmall?.copyWith(
-                      fontSize: 12.0,
-                      color: colorScheme.onSurface.withValues(alpha: 0.60),
-                      fontWeight: FontWeight.w600,
+                // Nickname Protagonista Ampliado (21px, bold, com proteção contra nicknames longos)
+                Tooltip(
+                  message: nickname,
+                  waitDuration: const Duration(milliseconds: 500),
+                  child: Text(
+                    nickname,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontSize: 21.0,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                      height: 1.15,
+                      color: isMe
+                          ? AppColors.primaryNeon
+                          : Colors.white,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ],
-                if (isCaptain) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.dotaGold.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppColors.dotaGold, width: 0.8),
+                ),
+
+                if (subtitle != null &&
+                    subtitle!.trim().isNotEmpty &&
+                    subtitle!.trim() != nickname.trim()) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle!,
+                    style: textTheme.bodySmall?.copyWith(
+                      fontSize: 12.0,
+                      color: colorScheme.onSurface.withValues(alpha: 0.58),
+                      fontWeight: FontWeight.w500,
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.stars_rounded, color: AppColors.dotaGold, size: 11),
-                        SizedBox(width: 4),
-                        Text(
-                          'CAPITÃO',
-                          style: TextStyle(
-                            color: AppColors.dotaGold,
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],
@@ -486,180 +384,287 @@ class _PlayerCardProfileSection extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar(ColorScheme colorScheme, {double size = 52}) {
-    final hasValidAvatar = avatarUrl != null &&
-        avatarUrl!.trim().isNotEmpty &&
-        (avatarUrl!.startsWith('http://') || avatarUrl!.startsWith('https://'));
+  Widget _buildAvatar({double size = 54}) {
+    final trimmedUrl = avatarUrl?.trim();
+    final hasRealAvatar = trimmedUrl != null &&
+        trimmedUrl.isNotEmpty &&
+        !AppAvatar.isGenericSteamPlaceholder(trimmedUrl) &&
+        (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://'));
 
-    Widget imageWidget;
-    if (hasValidAvatar) {
-      imageWidget = Image.network(
-        avatarUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildInitialsFallback(colorScheme, size: size),
-      );
-    } else {
-      imageWidget = _buildInitialsFallback(colorScheme, size: size);
-    }
+    final Widget imageWidget = hasRealAvatar
+        ? Image.network(
+            trimmedUrl,
+            cacheWidth: (size * 2).round().clamp(64, 256),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                AppAvatar.buildTsurusSymbolFallback(size: size),
+          )
+        : AppAvatar.buildTsurusSymbolFallback(size: size);
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
+        color: AppColors.canvasSurface,
         border: Border.all(
           color: isMe
               ? AppColors.primaryNeon
-              : (isCaptain
+              : isCaptain
                   ? AppColors.dotaGold
-                  : AppColors.border),
-          width: 1.0,
+                  : AppColors.border.withValues(alpha: 0.9),
+          width: (isMe || isCaptain) ? 1.4 : 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
       ),
       child: ClipOval(child: imageWidget),
     );
   }
-
-  Widget _buildInitialsFallback(ColorScheme colorScheme, {double size = 52}) {
-    return Container(
-      color: AppColors.canvasSurface,
-      alignment: Alignment.center,
-      child: Text(
-        effectiveInitials,
-        style: TextStyle(
-          fontSize: size * 0.35,
-          fontWeight: FontWeight.w800,
-          color: isCaptain ? AppColors.dotaGold : AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
 }
 
-/// Bloco 3: Botões externos Steam e OpenDota
-class _PlayerCardExternalButtons extends StatelessWidget {
+/// Zona 2: Rodapé Sóbrio e Enxuto (Dota ID copiável discreto + Ações compactas Steam/OpenDota)
+class _PlayerCardCompactFooter extends StatelessWidget {
+  final String? steamId;
   final String? steamProfileUrl;
   final String? openDotaUrl;
-  final String? steamId;
+  final VoidCallback? onCopySteamId;
   final VoidCallback? onOpenSteamProfile;
   final VoidCallback? onOpenOpenDota;
 
-  const _PlayerCardExternalButtons({
+  const _PlayerCardCompactFooter({
+    this.steamId,
     this.steamProfileUrl,
     this.openDotaUrl,
-    this.steamId,
+    this.onCopySteamId,
     this.onOpenSteamProfile,
     this.onOpenOpenDota,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasSteam = steamProfileUrl != null && steamProfileUrl!.trim().isNotEmpty;
+    final hasId = steamId != null && steamId!.trim().isNotEmpty;
+    final hasSteam =
+        (steamProfileUrl != null && steamProfileUrl!.trim().isNotEmpty) || hasId;
     final hasOpenDota = openDotaUrl != null && openDotaUrl!.trim().isNotEmpty;
 
-    return Row(
-      children: [
-        // Botão Steam sóbrio e leve
-        Expanded(
-          child: SizedBox(
-            height: 30,
-            child: Material(
-              color: AppColors.canvasSurface.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(6),
-              child: InkWell(
-                onTap: onOpenSteamProfile ??
-                    (hasSteam
-                        ? () => SafeUrlLauncher.open(context, steamProfileUrl!, platformName: 'Steam')
-                        : (steamId != null
-                            ? () => SafeUrlLauncher.openSteamProfile(context, steamId!)
-                            : null)),
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.border,
-                      width: 0.85,
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.sports_esports_rounded, size: 12.5, color: AppColors.textSecondary),
-                      SizedBox(width: 5),
-                      Text(
-                        'Steam',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.open_in_new_rounded, size: 10.5, color: AppColors.textSecondary),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.canvasSurface.withValues(alpha: 0.42),
+        border: Border(
+          top: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.50),
+            width: 0.85,
           ),
         ),
-        const SizedBox(width: 8),
+      ),
+      child: Row(
+        children: [
+          if (hasId)
+            _DiscreteIdCopyButton(
+              id: steamId!.trim(),
+              onCopySteamId: onCopySteamId,
+            )
+          else
+            Text(
+              'Sem ID vinculado',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary.withValues(alpha: 0.45),
+              ),
+            ),
+          const Spacer(),
+          _CompactExternalLink(
+            icon: Icons.sports_esports_rounded,
+            label: 'Steam',
+            onTap: onOpenSteamProfile ??
+                (hasSteam
+                    ? () {
+                        if (steamProfileUrl != null &&
+                            steamProfileUrl!.trim().isNotEmpty) {
+                          SafeUrlLauncher.open(
+                            context,
+                            steamProfileUrl!,
+                            platformName: 'Steam',
+                          );
+                        } else if (hasId) {
+                          SafeUrlLauncher.openSteamProfile(context, steamId!);
+                        }
+                      }
+                    : null),
+          ),
+          const SizedBox(width: 6),
+          _CompactExternalLink(
+            icon: Icons.bar_chart_rounded,
+            label: 'OpenDota',
+            onTap: onOpenOpenDota ??
+                (hasOpenDota
+                    ? () => SafeUrlLauncher.open(
+                          context,
+                          openDotaUrl!,
+                          platformName: 'OpenDota',
+                        )
+                    : null),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-        // Botão OpenDota sóbrio e leve
-        Expanded(
-          child: SizedBox(
-            height: 30,
-            child: Material(
-              color: AppColors.canvasSurface.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(6),
-              child: InkWell(
-                onTap: onOpenOpenDota ??
-                    (hasOpenDota
-                        ? () => SafeUrlLauncher.open(context, openDotaUrl!, platformName: 'OpenDota')
-                        : null),
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.border,
-                      width: 0.85,
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.bar_chart_rounded, size: 12.5, color: AppColors.textSecondary),
-                      SizedBox(width: 5),
-                      Text(
-                        'OpenDota',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.open_in_new_rounded, size: 10.5, color: AppColors.textSecondary),
-                    ],
+class _DiscreteIdCopyButton extends StatefulWidget {
+  final String id;
+  final VoidCallback? onCopySteamId;
+
+  const _DiscreteIdCopyButton({
+    required this.id,
+    this.onCopySteamId,
+  });
+
+  @override
+  State<_DiscreteIdCopyButton> createState() => _DiscreteIdCopyButtonState();
+}
+
+class _DiscreteIdCopyButtonState extends State<_DiscreteIdCopyButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final fgColor = _hovered
+        ? AppColors.dotaGoldLight
+        : AppColors.textSecondary.withValues(alpha: 0.85);
+
+    return Tooltip(
+      message: 'Copiar Dota ID (${widget.id})',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: InkWell(
+          onTap: widget.onCopySteamId ??
+              () {
+                Clipboard.setData(ClipboardData(text: widget.id));
+                AppFeedback.showSuccess(
+                  context,
+                  title: 'DOTA ID COPIADO',
+                  message: 'Dota ID (${widget.id}) copiado! Cole no jogo para adicionar.',
+                );
+              },
+          borderRadius: BorderRadius.circular(5),
+          child: Container(
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? AppColors.dotaGold.withValues(alpha: 0.12)
+                  : AppColors.canvasSurface.withValues(alpha: 0.50),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.dotaGold.withValues(alpha: 0.55)
+                    : AppColors.border.withValues(alpha: 0.75),
+                width: 0.85,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'ID ${widget.id}',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: fgColor,
+                    letterSpacing: 0.3,
                   ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.content_copy_rounded,
+                  size: 11,
+                  color: fgColor,
+                ),
+              ],
             ),
           ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _CompactExternalLink extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _CompactExternalLink({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  @override
+  State<_CompactExternalLink> createState() => _CompactExternalLinkState();
+}
+
+class _CompactExternalLinkState extends State<_CompactExternalLink> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final fgColor = !enabled
+        ? AppColors.textSecondary.withValues(alpha: 0.30)
+        : _hovered
+            ? AppColors.dotaGoldLight
+            : AppColors.textSecondary.withValues(alpha: 0.85);
+
+    return MouseRegion(
+      onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
+      onExit: enabled ? (_) => setState(() => _hovered = false) : null,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(5),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(5),
+          child: Container(
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? AppColors.dotaGold.withValues(alpha: 0.12)
+                  : AppColors.canvasSurface.withValues(alpha: 0.50),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.dotaGold.withValues(alpha: 0.55)
+                    : AppColors.border.withValues(alpha: 0.75),
+                width: 0.85,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.icon, size: 12, color: fgColor),
+                const SizedBox(width: 4),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: fgColor,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.open_in_new_rounded, size: 10, color: fgColor),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -287,11 +287,10 @@ class _RolesConfigDialogState extends State<RolesConfigDialog> {
         title: 'FUNÇÕES NO DOTA 2',
         maxWidth: 440,
         onClose: _handleCloseRequest,
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
               // 1. Caixa de Informação Estruturada
               Container(
                 padding:
@@ -399,7 +398,6 @@ class _RolesConfigDialogState extends State<RolesConfigDialog> {
               const SizedBox(height: 8),
             ],
           ),
-        ),
         actions: [
           AppCancelButton(
             height: 44,

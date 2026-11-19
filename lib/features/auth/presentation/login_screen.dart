@@ -89,9 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: GestureDetector(
-        // Ao clicar fora de qualquer campo, recolhe o teclado imediatamente
+        // Ao clicar fora de qualquer campo, recolhe o teclado imediatamente sem assinar rebuilds do FocusScope
         behavior: HitTestBehavior.opaque,
-        onTap: FocusScope.of(context).unfocus,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: AuthBackground(
           child: SafeArea(
             child: Center(

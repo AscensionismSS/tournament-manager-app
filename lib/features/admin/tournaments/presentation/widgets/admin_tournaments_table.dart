@@ -17,114 +17,126 @@ class AdminTournamentsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          // Cabeçalho da Tabela
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceHighlight.withValues(alpha: 0.5),
-              border: const Border(
-                bottom: BorderSide(color: AppColors.border, width: 1),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double tableWidth = constraints.maxWidth < 880.0 ? 880.0 : constraints.maxWidth;
+
+        return AppCard(
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              child: Column(
+                children: [
+                  // Cabeçalho da Tabela
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHighlight.withValues(alpha: 0.5),
+                      border: const Border(
+                        bottom: BorderSide(color: AppColors.border, width: 1),
+                      ),
+                    ),
+                    child: const Row(
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: Text(
+                            'TORNEIO',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            'FORMATO & CHAVE',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'EQUIPES',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'STATUS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'CRIADO EM',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            'AÇÕES',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Linhas da Tabela
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: tournaments.length,
+                    separatorBuilder: (context, index) => const Divider(
+                      color: AppColors.border,
+                      height: 1,
+                    ),
+                    itemBuilder: (context, index) {
+                      final tournament = tournaments[index];
+                      return _buildRow(context, tournament);
+                    },
+                  ),
+                ],
               ),
             ),
-            child: const Row(
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    'TORNEIO',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'FORMATO & CHAVE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'EQUIPES',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'STATUS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'CRIADO EM',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 50,
-                  child: Text(
-                    'AÇÕES',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
-
-          // Linhas da Tabela
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: tournaments.length,
-            separatorBuilder: (context, index) => const Divider(
-              color: AppColors.border,
-              height: 1,
-            ),
-            itemBuilder: (context, index) {
-              final tournament = tournaments[index];
-              return _buildRow(context, tournament);
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -221,12 +233,16 @@ class AdminTournamentsTable extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  t.teamsProgressLabel,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                Flexible(
+                  child: Text(
+                    t.teamsProgressLabel,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -298,6 +314,7 @@ class AdminTournamentsTable extends StatelessWidget {
               t.resolvedBannerUrl!,
               width: width,
               height: height,
+              cacheWidth: 120,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => _buildFallbackThumbnail(t),
             )

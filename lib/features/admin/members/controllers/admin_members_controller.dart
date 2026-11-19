@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -15,6 +17,8 @@ enum AdminMembersTab {
 
 /// Controller responsável pelo estado, filtros e ações da tela de Gestão Administrativa de Membros.
 class AdminMembersController extends ChangeNotifier {
+  static const int pageSize = 15;
+
   final TextEditingController searchController = TextEditingController();
   final TextEditingController requestsSearchController = TextEditingController();
 
@@ -23,7 +27,59 @@ class AdminMembersController extends ChangeNotifier {
 
   // Estados de Membros
   List<MemberDto> _members = [];
+  List<MemberDto> _visibleMembers = [];
+  Map<String, MemberDto> _membersById = {};
   List<MemberDto> get members => _members;
+
+  int _visibleCount = pageSize;
+  bool _isLoadingMore = false;
+  bool _isDisposed = false;
+  int _membersFetchSeq = 0;
+  int _requestsFetchSeq = 0;
+  Timer? _loadMoreTimer;
+  Timer? _requestsDebounceTimer;
+
+  int get visibleCount => _visibleCount;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreMembers => _visibleCount < _members.length;
+
+  /// Membros visíveis pré-fatiados em O(1) para Infinite Scroll sem realocação por linha
+  List<MemberDto> get visibleMembers => _visibleMembers;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
+  void _rebuildMemberIndices() {
+    _membersById = {for (final m in _members) m.userId: m};
+    _rebuildVisibleMembers();
+  }
+
+  void _rebuildVisibleMembers() {
+    if (_visibleCount >= _members.length) {
+      _visibleMembers = _members;
+    } else {
+      _visibleMembers = _members.sublist(0, _visibleCount);
+    }
+  }
+
+  /// Carrega o próximo lote de membros de forma progressiva
+  void loadMoreMembers() {
+    if (_isDisposed || _isLoadingMore || !hasMoreMembers) return;
+    _isLoadingMore = true;
+    notifyListeners();
+
+    _loadMoreTimer?.cancel();
+    _loadMoreTimer = Timer(const Duration(milliseconds: 80), () {
+      if (_isDisposed) return;
+      _visibleCount = math.min(_visibleCount + pageSize, _members.length);
+      _isLoadingMore = false;
+      _rebuildVisibleMembers();
+      notifyListeners();
+    });
+  }
 
   bool _isLoadingMembers = false;
   bool get isLoadingMembers => _isLoadingMembers;
@@ -43,27 +99,29 @@ class AdminMembersController extends ChangeNotifier {
 
   // Estados de Solicitações de Recuperação (Troca de Steam)
   List<RecoveryRequestDto> _recoveryRequests = [];
+  List<RecoveryRequestDto> _filteredRecoveryRequests = [];
+  int _pendingRequestsCount = 0;
   List<RecoveryRequestDto> get recoveryRequests => _recoveryRequests;
 
-  /// Solicitações PENDENTES (filtradas por busca textual de nome ou e-mail)
-  List<RecoveryRequestDto> get filteredRecoveryRequests {
+  /// Solicitações PENDENTES pré-filtradas em O(1)
+  List<RecoveryRequestDto> get filteredRecoveryRequests => _filteredRecoveryRequests;
+
+  void _rebuildFilteredRequests() {
     final pendingOnly = _recoveryRequests.where((r) => r.isPending).toList();
+    _pendingRequestsCount = pendingOnly.length;
     final query = requestsSearchController.text.trim().toLowerCase();
-    if (query.isEmpty) return pendingOnly;
-    return pendingOnly.where((r) {
+    if (query.isEmpty) {
+      _filteredRecoveryRequests = pendingOnly;
+      return;
+    }
+    _filteredRecoveryRequests = pendingOnly.where((r) {
       return r.displayName.toLowerCase().contains(query) ||
           r.email.toLowerCase().contains(query);
     }).toList();
   }
 
-  /// Busca o membro correspondente para complementar dados de Steam se necessário
-  MemberDto? getMemberByUserId(String userId) {
-    try {
-      return _members.firstWhere((m) => m.userId == userId);
-    } catch (_) {
-      return null;
-    }
-  }
+  /// Busca o membro correspondente em O(1) via índice em memória
+  MemberDto? getMemberByUserId(String userId) => _membersById[userId];
 
   bool _isLoadingRequests = false;
   bool get isLoadingRequests => _isLoadingRequests;
@@ -78,8 +136,7 @@ class AdminMembersController extends ChangeNotifier {
   String? get processingRequestId => _processingRequestId;
 
   // Quantidade de solicitações pendentes
-  int get pendingRequestsCount =>
-      _recoveryRequests.where((r) => r.isPending).length;
+  int get pendingRequestsCount => _pendingRequestsCount;
 
   AdminMembersController({AdminMembersTab initialTab = AdminMembersTab.members})
       : _activeTab = initialTab {
@@ -87,7 +144,12 @@ class AdminMembersController extends ChangeNotifier {
   }
 
   void _onRequestsSearchChanged() {
-    notifyListeners();
+    _requestsDebounceTimer?.cancel();
+    _requestsDebounceTimer = Timer(const Duration(milliseconds: 180), () {
+      if (_isDisposed) return;
+      _rebuildFilteredRequests();
+      notifyListeners();
+    });
   }
 
   void setActiveTab(AdminMembersTab tab) {
@@ -145,8 +207,12 @@ class AdminMembersController extends ChangeNotifier {
 
   /// Busca membros aplicando filtros de backend
   Future<void> fetchMembers() async {
+    final int seq = ++_membersFetchSeq;
+    _loadMoreTimer?.cancel();
     _isLoadingMembers = true;
     _membersError = null;
+    _visibleCount = pageSize;
+    _isLoadingMore = false;
     notifyListeners();
 
     try {
@@ -163,6 +229,7 @@ class AdminMembersController extends ChangeNotifier {
       );
 
       final responseJson = await ApiClient.get(url, requiresAuth: true);
+      if (_isDisposed || seq != _membersFetchSeq) return;
 
       final rawData = responseJson is List
           ? responseJson
@@ -173,15 +240,18 @@ class AdminMembersController extends ChangeNotifier {
       _members = listData
           .map((item) => MemberDto.fromJson(item as Map<String, dynamic>))
           .toList();
+      _rebuildMemberIndices();
 
       _isLoadingMembers = false;
       notifyListeners();
     } on ApiException catch (e) {
+      if (_isDisposed || seq != _membersFetchSeq) return;
       _membersError = e.message;
       _isLoadingMembers = false;
       notifyListeners();
-    } catch (e) {
-      _membersError = 'Falha ao buscar membros: $e';
+    } catch (_) {
+      if (_isDisposed || seq != _membersFetchSeq) return;
+      _membersError = 'Não foi possível carregar a lista de membros.';
       _isLoadingMembers = false;
       notifyListeners();
     }
@@ -206,12 +276,14 @@ class AdminMembersController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return false;
 
       final updated = MemberDto.fromJson(responseJson);
 
       final index = _members.indexWhere((m) => m.userId == userId);
       if (index >= 0) {
         _members[index] = updated;
+        _rebuildMemberIndices();
       }
 
       _processingUserId = null;
@@ -230,9 +302,9 @@ class AdminMembersController extends ChangeNotifier {
     }
   }
 
-
   /// Carrega as solicitações de troca de Steam (GET /api/v1/auth/recovery-requests)
   Future<void> fetchRecoveryRequests() async {
+    final int seq = ++_requestsFetchSeq;
     _isLoadingRequests = true;
     _requestsError = null;
     notifyListeners();
@@ -242,6 +314,7 @@ class AdminMembersController extends ChangeNotifier {
         ApiEndpoints.authRecoveryRequests,
         requiresAuth: true,
       );
+      if (_isDisposed || seq != _requestsFetchSeq) return;
 
       final rawData = responseJson is List
           ? responseJson
@@ -252,15 +325,18 @@ class AdminMembersController extends ChangeNotifier {
       _recoveryRequests = listData
           .map((item) => RecoveryRequestDto.fromJson(item as Map<String, dynamic>))
           .toList();
+      _rebuildFilteredRequests();
 
       _isLoadingRequests = false;
       notifyListeners();
     } on ApiException catch (e) {
+      if (_isDisposed || seq != _requestsFetchSeq) return;
       _requestsError = e.message;
       _isLoadingRequests = false;
       notifyListeners();
-    } catch (e) {
-      _requestsError = 'Falha ao buscar solicitações: $e';
+    } catch (_) {
+      if (_isDisposed || seq != _requestsFetchSeq) return;
+      _requestsError = 'Não foi possível carregar as solicitações.';
       _isLoadingRequests = false;
       notifyListeners();
     }
@@ -276,8 +352,8 @@ class AdminMembersController extends ChangeNotifier {
         ApiEndpoints.approveRecoveryRequest(requestId),
         requiresAuth: true,
       );
+      if (_isDisposed) return false;
 
-      // Atualiza localmente o item para isUsed = true
       final index = _recoveryRequests.indexWhere((r) => r.id == requestId);
       if (index >= 0) {
         final current = _recoveryRequests[index];
@@ -286,14 +362,17 @@ class AdminMembersController extends ChangeNotifier {
           userId: current.userId,
           displayName: current.displayName,
           email: current.email,
+          avatarUrl: current.avatarUrl,
+          steamId: current.steamId,
+          personaName: current.personaName,
           type: current.type,
           createdAtUtc: current.createdAtUtc,
           isUsed: true,
           usedAtUtc: DateTime.now().toUtc(),
         );
+        _rebuildFilteredRequests();
       }
 
-      // Atualiza também os membros caso a Steam de algum deles tenha sido desvinculada
       await fetchMembers();
 
       _processingRequestId = null;
@@ -326,8 +405,8 @@ class AdminMembersController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return false;
 
-      // Marca como used localmente para sumir da lista de pendentes mantendo integridade
       final index = _recoveryRequests.indexWhere((r) => r.id == requestId);
       if (index >= 0) {
         final current = _recoveryRequests[index];
@@ -344,6 +423,7 @@ class AdminMembersController extends ChangeNotifier {
           isUsed: true,
           usedAtUtc: DateTime.now().toUtc(),
         );
+        _rebuildFilteredRequests();
       }
 
       _processingRequestId = null;
@@ -364,9 +444,17 @@ class AdminMembersController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _loadMoreTimer?.cancel();
+    _requestsDebounceTimer?.cancel();
     requestsSearchController.removeListener(_onRequestsSearchChanged);
     searchController.dispose();
     requestsSearchController.dispose();
+    _members = [];
+    _visibleMembers = [];
+    _membersById = {};
+    _recoveryRequests = [];
+    _filteredRecoveryRequests = [];
     super.dispose();
   }
 }

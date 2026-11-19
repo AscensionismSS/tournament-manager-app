@@ -229,6 +229,7 @@ class SteamPreviewCard extends StatelessWidget {
                     child: hasAvatar
                         ? Image.network(
                             p.avatarUrl!,
+                            cacheWidth: 96,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.person_rounded,

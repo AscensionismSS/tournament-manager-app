@@ -17,10 +17,10 @@ class WizardFormatSupportPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceHighlight.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.border.withValues(alpha: 0.8),
           width: 1,
@@ -33,22 +33,22 @@ class WizardFormatSupportPanel extends StatelessWidget {
             children: [
               const Icon(
                 Icons.rule_rounded,
-                size: 16,
+                size: 14,
                 color: AppColors.dotaGold,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 'FORMATOS COMPATÍVEIS COM $teamCount EQUIPES:',
                 style: const TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 11.0,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
+                  letterSpacing: 0.5,
                   color: AppColors.dotaGold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           _buildFormatSupportRow(
             title: 'Mata-Mata Direto (Playoffs Puros)',
             isSupported: isDirectPlayoffsAllowed,
@@ -56,13 +56,13 @@ class WizardFormatSupportPanel extends StatelessWidget {
                 ? 'Chave simétrica perfeita sem BYE.'
                 : 'Indisponível (requer 4 ou 8 equipes para chave balanceada).',
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 3),
           _buildFormatSupportRow(
             title: 'Fase de Grupos (Grupo Único)',
             isSupported: true,
             reason: 'Disponível: todos contra todos ($teamCount equipes).',
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 3),
           _buildFormatSupportRow(
             title: 'Fase de Grupos (2 Grupos de 4)',
             isSupported: isTwoGroupsAllowed,
@@ -87,17 +87,17 @@ class WizardFormatSupportPanel extends StatelessWidget {
           padding: const EdgeInsets.only(top: 2),
           child: Icon(
             isSupported ? Icons.check_circle_rounded : Icons.cancel_rounded,
-            size: 15,
+            size: 13.5,
             color: isSupported
                 ? AppColors.primaryNeon
                 : AppColors.textSecondary.withValues(alpha: 0.5),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: const TextStyle(fontSize: 12, height: 1.35),
+              style: const TextStyle(fontSize: 11, height: 1.25),
               children: [
                 TextSpan(
                   text: '$title: ',

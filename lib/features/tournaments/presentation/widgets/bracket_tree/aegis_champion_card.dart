@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../../core/shared_widgets/shared_widgets.dart';
 import '../../../../../core/theme/theme.dart';
@@ -17,15 +16,16 @@ class AegisChampionCard extends StatelessWidget {
   void _showTrophyDialog(BuildContext context) {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.8),
+      barrierColor: Colors.black.withValues(alpha: 0.82),
       builder: (ctx) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: ConstrainedBox(
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 580, maxHeight: 680),
               child: Container(
                 decoration: BoxDecoration(
@@ -108,6 +108,7 @@ class AegisChampionCard extends StatelessWidget {
                                   child: Center(
                                     child: Image.asset(
                                       'assets/images/aegis_tsurus.png',
+                                      cacheWidth: 960,
                                       fit: BoxFit.contain,
                                       errorBuilder:
                                           (context, error, stackTrace) {
@@ -196,7 +197,6 @@ class AegisChampionCard extends StatelessWidget {
                 ),
               ),
             ),
-          ),
         );
       },
     );
@@ -298,24 +298,23 @@ class AegisChampionCard extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     Center(
-                      child: Opacity(
-                        opacity: isDecided ? 1.0 : 0.85,
-                        child: Image.asset(
-                          'assets/images/aegis_tsurus.png',
-                          height: 175,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 175,
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.emoji_events_rounded,
-                                size: 80,
-                                color: AppColors.dotaGold,
-                              ),
-                            );
-                          },
-                        ),
+                      child: Image.asset(
+                        'assets/images/aegis_tsurus.png',
+                        height: 175,
+                        cacheHeight: 350,
+                        opacity: AlwaysStoppedAnimation(isDecided ? 1.0 : 0.85),
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 175,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.emoji_events_rounded,
+                              size: 80,
+                              color: AppColors.dotaGold,
+                            ),
+                          );
+                        },
                       ),
                     ),
 

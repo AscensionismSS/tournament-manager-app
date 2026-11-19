@@ -25,7 +25,7 @@ class AdminTournamentsFilterBar extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool isMobile = constraints.maxWidth < 580;
+        final bool isMobile = constraints.maxWidth < 680;
 
         if (isMobile) {
           return Column(

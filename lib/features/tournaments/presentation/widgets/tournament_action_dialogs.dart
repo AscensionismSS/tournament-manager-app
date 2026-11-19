@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/navigation/app_mode.dart';
 import '../../../../core/services/system_security_service.dart';
 import '../../../../core/shared_widgets/shared_widgets.dart';
 import '../../../../core/storage/token_storage.dart';
@@ -274,6 +275,17 @@ class TournamentActionDialogs {
       if (!context.mounted) return;
       if (error == null) {
         controller.setActiveTab(TournamentDetailTab.playoffs);
+        final canManage =
+            TokenStorage.profileNotifier.value?.canManageTournaments ?? false;
+        final isFromAdmin =
+            (GoRouterState.of(context).uri.queryParameters['from'] == 'admin' ||
+                    AppModeState.isAdmin) &&
+                canManage;
+        final query = isFromAdmin ? '?from=admin' : '';
+        context.go(
+          '/tournaments/${controller.tournamentId}/playoffs$query',
+          extra: controller.tournament,
+        );
         AppFeedback.showSuccess(
           context,
           message: 'Chaves dos Playoffs geradas com sucesso!',
@@ -364,11 +376,22 @@ class TournamentActionDialogs {
       final error = await controller.deleteTournament();
       if (!context.mounted) return;
       if (error == null) {
+        final canManage =
+            TokenStorage.profileNotifier.value?.canManageTournaments ?? false;
+        final isFromAdmin =
+            (GoRouterState.of(context).uri.queryParameters['from'] == 'admin' ||
+                    AppModeState.isAdmin) &&
+                canManage;
         AppFeedback.showSuccess(
           context,
           message: 'Campeonato excluído com sucesso!',
         );
-        context.go('/tournaments');
+        if (isFromAdmin) {
+          AppModeState.setMode(AppMode.admin);
+          context.go('/admin/tournaments');
+        } else {
+          context.go('/tournaments');
+        }
       } else {
         AppFeedback.showError(context, message: error);
       }
@@ -393,8 +416,10 @@ class TournamentActionDialogs {
     if (confirmed == true && context.mounted) {
       final canManage =
           TokenStorage.profileNotifier.value?.canManageTournaments ?? false;
-      final isFromAdmin = GoRouterState.of(context).uri.queryParameters['from'] == 'admin' ||
-          canManage;
+      final isFromAdmin =
+          (GoRouterState.of(context).uri.queryParameters['from'] == 'admin' ||
+                  AppModeState.isAdmin) &&
+              canManage;
       final query = isFromAdmin ? '?from=admin' : '';
       context.go('/tournaments/${tournament.id}/draft-room$query', extra: tournament);
     }
@@ -514,8 +539,8 @@ class TournamentActionDialogs {
     if (type == null || !context.mounted) return;
 
     final matchesController = MatchesController(initialSeries: match);
-
-    switch (type) {
+    try {
+      switch (type) {
       case GameResultType.manual:
         final result = await GameManualResultDialog.show(
           context,
@@ -608,6 +633,9 @@ class TournamentActionDialogs {
       case GameResultType.undoLastGame:
       case GameResultType.rollback:
         break;
+      }
+    } finally {
+      matchesController.dispose();
     }
   }
 
@@ -664,8 +692,8 @@ class TournamentActionDialogs {
     if (type == null || !context.mounted) return;
 
     final matchesController = MatchesController(initialSeries: match);
-
-    switch (type) {
+    try {
+      switch (type) {
       case GameResultType.manual:
         final existingGame = match.gameByNumber(gameIndex);
         final result = await GameManualResultDialog.show(
@@ -808,6 +836,9 @@ class TournamentActionDialogs {
           }
         }
         break;
+      }
+    } finally {
+      matchesController.dispose();
     }
   }
 }

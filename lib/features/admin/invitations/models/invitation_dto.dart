@@ -50,13 +50,14 @@ class InvitationDto {
 
   /// Link completo de convite para a rota de cadastro/onboarding
   String get inviteLink {
+    final encodedCode = Uri.encodeComponent(code);
     try {
       final base = Uri.base;
       if (base.hasAuthority && !base.scheme.startsWith('file')) {
-        return '${base.origin}/register?code=$code';
+        return '${base.origin}/register?code=$encodedCode';
       }
     } catch (_) {}
-    return 'https://arena.tournament.local/register?code=$code';
+    return 'https://arena.tournament.local/register?code=$encodedCode';
   }
 
   /// Código truncado para visualização em tabela desktop

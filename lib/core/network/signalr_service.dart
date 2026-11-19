@@ -5,7 +5,7 @@ import 'api_endpoints.dart';
 
 /// Serviço singleton para gerenciar conexões em tempo real via SignalR (Hub /hubs/v1/tournament-draft).
 /// Escuta notificações em tempo real, como liberação de conta Steam ("ReceiveSteamUnlocked"),
-/// drafts de torneios e atualizações de partidas.
+/// drafts de torneios e atualizações de partidas, com re-join automático de grupos.
 class SignalRService {
   static SignalRService? _instance;
   static SignalRService get instance => _instance ??= SignalRService._();
@@ -13,8 +13,24 @@ class SignalRService {
   SignalRService._();
 
   HubConnection? _hubConnection;
-  bool _isConnecting = false;
+  Future<void>? _connectingFuture;
+  int _connectionEpoch = 0;
+
   bool get isConnected => _hubConnection?.state == HubConnectionState.Connected;
+
+  bool get _isRecoveringOrConnecting {
+    final state = _hubConnection?.state;
+    return state == HubConnectionState.Connecting ||
+        state == HubConnectionState.Reconnecting ||
+        state == HubConnectionState.Disconnecting;
+  }
+
+  /// Grupos de draft ativos que devem ser ingressados após handshake inicial ou reconexão automática
+  final Set<String> _joinedTournamentIds = <String>{};
+
+  @visibleForTesting
+  Set<String> get joinedTournamentIdsForTest =>
+      Set<String>.unmodifiable(_joinedTournamentIds);
 
   final List<void Function(dynamic)> _steamUnlockedListeners = [];
   final List<void Function(dynamic)> _draftSnapshotListeners = [];
@@ -69,54 +85,131 @@ class SignalRService {
     _draftCompletedListeners.remove(listener);
   }
 
-  /// Entra no canal SignalR do draft do torneio
+  /// Entra no canal SignalR do draft do torneio (com suporte a fila pré-conexão e auto-rejoin)
   Future<void> joinTournamentDraft(String tournamentId) async {
+    final trimmed = tournamentId.trim();
+    if (trimmed.isEmpty) return;
+    _joinedTournamentIds.add(trimmed);
+
+    final inFlight = _connectingFuture;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+
     if (isConnected) {
       try {
-        await _hubConnection?.invoke('JoinTournamentDraft', args: [tournamentId]);
+        await _hubConnection?.invoke('JoinTournamentDraft', args: [trimmed]);
       } catch (e) {
         if (kDebugMode) debugPrint('Erro ao entrar no grupo de draft: $e');
       }
+      return;
     }
+
+    // Se já estiver em reconexão automática pelo SignalR, preserva a sessão atual;
+    // o handler `onreconnected` reingressará automaticamente em `_joinedTournamentIds`.
+    if (_isRecoveringOrConnecting) {
+      return;
+    }
+
+    await connect();
   }
 
   /// Sai do canal SignalR do draft do torneio
   Future<void> leaveTournamentDraft(String tournamentId) async {
+    final trimmed = tournamentId.trim();
+    if (trimmed.isEmpty) return;
+    _joinedTournamentIds.remove(trimmed);
+
     if (isConnected) {
       try {
-        await _hubConnection?.invoke('LeaveTournamentDraft', args: [tournamentId]);
+        await _hubConnection?.invoke('LeaveTournamentDraft', args: [trimmed]);
       } catch (e) {
         if (kDebugMode) debugPrint('Erro ao sair do grupo de draft: $e');
       }
     }
   }
 
-  /// Inicia conexão com o Hub SignalR autenticado via access_token
-  Future<void> connect() async {
-    if (isConnected || _isConnecting) return;
+  Future<void> _rejoinActiveGroups(int epoch) async {
+    if (epoch != _connectionEpoch || !isConnected || _joinedTournamentIds.isEmpty) {
+      return;
+    }
+    for (final id in List<String>.from(_joinedTournamentIds)) {
+      if (epoch != _connectionEpoch || !_joinedTournamentIds.contains(id) || !isConnected) {
+        continue;
+      }
+      try {
+        await _hubConnection?.invoke('JoinTournamentDraft', args: [id]);
+      } catch (e) {
+        if (kDebugMode) debugPrint('Erro ao reingressar no grupo de draft ($id): $e');
+      }
+    }
+  }
 
-    final token = await TokenStorage.getToken();
-    if (token == null || token.isEmpty) return;
+  /// Inicia conexão com o Hub SignalR autenticado via access_token (deduplicado e protegido contra corridas)
+  Future<void> connect() {
+    if (isConnected || _isRecoveringOrConnecting) {
+      return Future<void>.value();
+    }
+    final existing = _connectingFuture;
+    if (existing != null) {
+      return existing;
+    }
 
-    _isConnecting = true;
-    final hubUrl = ApiEndpoints.tournamentDraftHubUrl;
+    final int epoch = ++_connectionEpoch;
+    final future = _connectInternal(epoch);
+    _connectingFuture = future;
+    return future;
+  }
 
+  Future<void> _connectInternal(int epoch) async {
     try {
-      await stop();
-      _hubConnection = HubConnectionBuilder()
+      final token = await TokenStorage.getToken();
+      if (token == null || token.isEmpty || epoch != _connectionEpoch) return;
+
+      final hubUrl = ApiEndpoints.tournamentDraftHubUrl;
+      await _disposeConnectionOnly();
+      if (epoch != _connectionEpoch) return;
+
+      final connection = HubConnectionBuilder()
           .withUrl(
             hubUrl,
             options: HttpConnectionOptions(
-              accessTokenFactory: () async => token,
+              accessTokenFactory: () async => (await TokenStorage.getToken()) ?? '',
               skipNegotiation: false,
             ),
           )
-          .withAutomaticReconnect()
+          .withAutomaticReconnect(
+            retryDelays: const [0, 2000, 5000, 10000, 20000, 30000],
+          )
           .build();
+
+      _hubConnection = connection;
+
+      connection.onreconnected(({connectionId}) {
+        _rejoinActiveGroups(epoch);
+      });
+
+      connection.onclose(({error}) {
+        if (_hubConnection == connection) {
+          _hubConnection = null;
+        }
+      });
 
       _setupHandlers();
 
-      await _hubConnection!.start();
+      await connection.start();
+      if (epoch != _connectionEpoch) {
+        try {
+          await connection.stop();
+        } catch (_) {}
+        if (_hubConnection == connection) {
+          _hubConnection = null;
+        }
+        return;
+      }
+
+      await _rejoinActiveGroups(epoch);
       if (kDebugMode) {
         debugPrint('SignalR conectado ao Hub: $hubUrl');
       }
@@ -125,7 +218,9 @@ class SignalRService {
         debugPrint('Aviso SignalR Hub (offline ou reconectando): $e');
       }
     } finally {
-      _isConnecting = false;
+      if (epoch == _connectionEpoch || _connectingFuture != null) {
+        _connectingFuture = null;
+      }
     }
   }
 
@@ -190,13 +285,20 @@ class SignalRService {
     });
   }
 
-  /// Encerra a conexão com o Hub (ex: ao fazer logout)
-  Future<void> stop() async {
+  Future<void> _disposeConnectionOnly() async {
     if (_hubConnection != null) {
       try {
         await _hubConnection!.stop();
       } catch (_) {}
       _hubConnection = null;
     }
+  }
+
+  /// Encerra a conexão com o Hub e limpa assinaturas de grupos (ex: ao fazer logout)
+  Future<void> stop() async {
+    _connectionEpoch++;
+    _connectingFuture = null;
+    _joinedTournamentIds.clear();
+    await _disposeConnectionOnly();
   }
 }

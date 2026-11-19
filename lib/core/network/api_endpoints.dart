@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Catálogo centralizado de endpoints da API (Single-Tenant).
 ///
 /// Reflete com fidelidade estrita as rotas expostas pelo backend TournamentCreator
@@ -5,14 +7,39 @@
 class ApiEndpoints {
   ApiEndpoints._();
 
-  /// URL Base configurável (Padrão: https://tournament-manager-api-34p7.onrender.com/api/v1)
-  static String baseUrl = const String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://tournament-manager-api-34p7.onrender.com/api/v1',
-  );
+  /// URL Base configurável:
+  /// - Em desenvolvimento local (debug): http://localhost:5000/api/v1
+  /// - Em produção (release): https://tournament-manager-api-34p7.onrender.com/api/v1
+  /// - Sobrescrito se fornecido via --dart-define=API_BASE_URL=...
+  static String baseUrl = _resolveDefaultBaseUrl();
 
-  /// Helper para alternar porta e protocolo de forma ágil durante o desenvolvimento local
+  static String _resolveDefaultBaseUrl() {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) {
+      return _enforceReleaseHttps(fromEnv);
+    }
+    if (kDebugMode) {
+      return 'http://localhost:5000/api/v1';
+    }
+    return 'https://tournament-manager-api-34p7.onrender.com/api/v1';
+  }
+
+  /// Impede downgrade acidental para HTTP em compilação de produção (exceto loopback local)
+  static String _enforceReleaseHttps(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (!kReleaseMode) return trimmed;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return 'https://tournament-manager-api-34p7.onrender.com/api/v1';
+    final isLocalhost = uri.host == 'localhost' || uri.host == '127.0.0.1';
+    if (!isLocalhost && uri.scheme == 'http') {
+      return uri.replace(scheme: 'https').toString();
+    }
+    return trimmed;
+  }
+
+  /// Helper para alternar porta e protocolo exclusivamente durante o desenvolvimento local
   static void configurePort(int port, {bool isHttps = false}) {
+    if (!kDebugMode) return;
     final scheme = isHttps ? 'https' : 'http';
     baseUrl = '$scheme://localhost:$port/api/v1';
   }
@@ -24,11 +51,16 @@ class ApiEndpoints {
     return '${uri.scheme}://${uri.host}$portPart/hubs/v1/tournament-draft';
   }
 
-  /// Resolve caminhos relativos de mídia (ex: /uploads/banners/...) para a URL absoluta do backend
+  /// Resolve caminhos relativos de mídia (ex: /uploads/banners/...) validando esquema seguro
   static String? resolveMediaUrl(String? rawUrl) {
     if (rawUrl == null || rawUrl.trim().isEmpty) return null;
     final clean = rawUrl.trim();
-    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    final parsed = Uri.tryParse(clean);
+    if (parsed != null && parsed.hasScheme) {
+      final scheme = parsed.scheme.toLowerCase();
+      if (scheme != 'https' && !(kDebugMode && scheme == 'http')) {
+        return null;
+      }
       return clean;
     }
     final uri = Uri.parse(baseUrl);
@@ -175,7 +207,8 @@ class ApiEndpoints {
   static String get invitations => '$baseUrl/invitations';
   static String get invitationExpirationOptions => '$baseUrl/invitations/expiration-options';
   static String invitationRevoke(String id) => '$baseUrl/invitations/$id/revoke';
-  static String invitationValidate(String code) => '$baseUrl/invitations/validate/$code';
+  static String invitationValidate(String code) =>
+      '$baseUrl/invitations/validate/${Uri.encodeComponent(code.trim())}';
 
   // ==========================================
   // 7. Preferências de Admin (AdminPreferencesController)

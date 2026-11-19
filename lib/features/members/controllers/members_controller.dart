@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -6,15 +8,28 @@ import '../models/member_dto.dart';
 
 /// Controller da Feature de Membros da Comunidade / Times.
 /// Responsável pelo ciclo de vida da busca, gerenciamento de filtros de função e rank,
-/// e orquestração de requisições à API.
+/// paginação em memória O(1) para Infinite Scroll e orquestração segura de requisições à API.
 class MembersController extends ChangeNotifier {
+  static const int pageSize = 18;
+
   final TextEditingController searchController = TextEditingController();
 
   List<MemberDto> _allMembers = [];
   List<MemberDto> _filteredMembers = [];
+  MemberDto? _myMember;
+  List<MemberDto> _otherMembers = [];
+  List<MemberDto> _visibleOtherMembers = [];
+
+  int _visibleCount = pageSize;
+  bool _isLoadingMore = false;
+  bool _isDisposed = false;
+  Timer? _loadMoreTimer;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _visibleCount < _otherMembers.length;
+  int get visibleCount => _visibleCount;
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
@@ -32,19 +47,35 @@ class MembersController extends ChangeNotifier {
   int get totalCount => _allMembers.length;
   int get filteredCount => _filteredMembers.length;
 
-  /// Card do usuário autenticado atual (se presente nos resultados filtrados)
-  MemberDto? get myMember {
-    if (_currentUserId == null) return null;
-    for (final m in _filteredMembers) {
-      if (m.userId == _currentUserId) return m;
-    }
-    return null;
+  /// Card do usuário autenticado atual (pré-computado O(1))
+  MemberDto? get myMember => _myMember;
+
+  /// Demais membros da comunidade (pré-computado O(1))
+  List<MemberDto> get otherMembers => _otherMembers;
+
+  /// Lista paginada para Infinite Scroll de alta performance (pré-computado O(1))
+  List<MemberDto> get visibleOtherMembers => _visibleOtherMembers;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
   }
 
-  /// Demais membros da comunidade (excluindo o usuário autenticado)
-  List<MemberDto> get otherMembers {
-    if (_currentUserId == null) return _filteredMembers;
-    return _filteredMembers.where((m) => m.userId != _currentUserId).toList();
+  /// Carrega o próximo lote no Infinite Scroll
+  void loadMore() {
+    if (_isDisposed || _isLoadingMore || !hasMore) return;
+    _isLoadingMore = true;
+    notifyListeners();
+
+    _loadMoreTimer?.cancel();
+    _loadMoreTimer = Timer(const Duration(milliseconds: 80), () {
+      if (_isDisposed) return;
+      _visibleCount = math.min(_visibleCount + pageSize, _otherMembers.length);
+      _isLoadingMore = false;
+      _rebuildVisibleSlice();
+      notifyListeners();
+    });
   }
 
   MembersController() {
@@ -53,8 +84,12 @@ class MembersController extends ChangeNotifier {
 
   Future<void> _initCurrentUser() async {
     final profile = await TokenStorage.getUserProfile();
-    _currentUserId = profile?.userId;
-    notifyListeners();
+    if (_isDisposed) return;
+    if (_currentUserId != profile?.userId) {
+      _currentUserId = profile?.userId;
+      _rebuildDerivedPartitions();
+      notifyListeners();
+    }
   }
 
   /// Carrega a lista completa de membros a partir do endpoint GET /api/v1/users
@@ -68,6 +103,7 @@ class MembersController extends ChangeNotifier {
         ApiEndpoints.usersList,
         requiresAuth: true,
       );
+      if (_isDisposed) return;
 
       final rawData = responseJson['data'] ?? responseJson['items'] ?? responseJson['users'];
       final List<dynamic> listData = rawData is List ? rawData : [];
@@ -83,7 +119,7 @@ class MembersController extends ChangeNotifier {
       _errorMessage = e.message;
       _isLoading = false;
       notifyListeners();
-    } catch (e) {
+    } catch (_) {
       _errorMessage = 'Falha inesperada ao carregar membros da arena.';
       _isLoading = false;
       notifyListeners();
@@ -127,6 +163,9 @@ class MembersController extends ChangeNotifier {
 
   /// Aplicação combinada de todos os filtros de busca
   void _applyFilters() {
+    _loadMoreTimer?.cancel();
+    _visibleCount = pageSize;
+    _isLoadingMore = false;
     final query = searchController.text.trim().toLowerCase();
 
     _filteredMembers = _allMembers.where((member) {
@@ -170,6 +209,33 @@ class MembersController extends ChangeNotifier {
 
       return true;
     }).toList();
+
+    _rebuildDerivedPartitions();
+  }
+
+  void _rebuildDerivedPartitions() {
+    MemberDto? me;
+    final others = <MemberDto>[];
+
+    for (final m in _filteredMembers) {
+      if (_currentUserId != null && m.userId == _currentUserId && me == null) {
+        me = m;
+      } else {
+        others.add(m);
+      }
+    }
+
+    _myMember = me;
+    _otherMembers = others;
+    _rebuildVisibleSlice();
+  }
+
+  void _rebuildVisibleSlice() {
+    if (_visibleCount >= _otherMembers.length) {
+      _visibleOtherMembers = _otherMembers;
+    } else {
+      _visibleOtherMembers = _otherMembers.sublist(0, _visibleCount);
+    }
   }
 
   /// Mapeador auxiliar de sinônimos de posições
@@ -194,7 +260,13 @@ class MembersController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _loadMoreTimer?.cancel();
     searchController.dispose();
+    _allMembers = [];
+    _filteredMembers = [];
+    _otherMembers = [];
+    _visibleOtherMembers = [];
     super.dispose();
   }
 }

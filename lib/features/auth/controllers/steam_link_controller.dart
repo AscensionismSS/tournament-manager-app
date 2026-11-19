@@ -33,6 +33,13 @@ class SteamLinkController extends ChangeNotifier {
 
   String? _successMessage;
   String? get successMessage => _successMessage;
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
 
   void clearMessages() {
     _errorMessage = null;
@@ -177,6 +184,7 @@ class SteamLinkController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     identifierController.dispose();
     identifierFocus.dispose();
     reasonController.dispose();

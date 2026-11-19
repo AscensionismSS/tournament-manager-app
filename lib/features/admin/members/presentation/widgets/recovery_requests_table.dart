@@ -29,124 +29,136 @@ class RecoveryRequestsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: [
-            // Cabeçalho da Tabela
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              color: AppColors.surfaceHighlight,
-              child: const Row(
-                children: [
-                  // 1. Solicitante
-                  SizedBox(
-                    width: 260,
-                    child: Text(
-                      'SOLICITANTE',
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double tableWidth = constraints.maxWidth < 980.0 ? 980.0 : constraints.maxWidth;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  children: [
+                    // Cabeçalho da Tabela
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      color: AppColors.surfaceHighlight,
+                      child: const Row(
+                        children: [
+                          // 1. Solicitante
+                          SizedBox(
+                            width: 260,
+                            child: Text(
+                              'SOLICITANTE',
+                              style: TextStyle(
+                                fontFamily: 'Oswald',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 24),
+                          // 2. Coluna de Steam Atual (Perto do Solicitante)
+                          SizedBox(
+                            width: 240,
+                            child: Text(
+                              'STEAM ATUAL',
+                              style: TextStyle(
+                                fontFamily: 'Oswald',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          Spacer(),
+                          // 3. Data do Pedido
+                          SizedBox(
+                            width: 140,
+                            child: Text(
+                              'DATA DO PEDIDO',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Oswald',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 20),
+                          // 4. Status
+                          SizedBox(
+                            width: 110,
+                            child: Text(
+                              'STATUS',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Oswald',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 20),
+                          // 5. Ações (Recusar e Aprovar)
+                          SizedBox(
+                            width: 230,
+                            child: Text(
+                              'AÇÕES',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Oswald',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  SizedBox(width: 24),
-                  // 2. Coluna de Steam Atual (Perto do Solicitante)
-                  SizedBox(
-                    width: 240,
-                    child: Text(
-                      'STEAM ATUAL',
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
+
+                    // Linhas com Separador Nítido e Confortável
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: requests.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.border.withValues(alpha: 0.75),
                       ),
+                      itemBuilder: (context, index) {
+                        final req = requests[index];
+                        final isProcessing = processingRequestId == req.id;
+                        final member = getMember?.call(req.userId);
+
+                        return _buildRow(context, req, member, isProcessing);
+                      },
                     ),
-                  ),
-                  Spacer(),
-                  // 3. Data do Pedido
-                  SizedBox(
-                    width: 140,
-                    child: Text(
-                      'DATA DO PEDIDO',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 20),
-                  // 4. Status
-                  SizedBox(
-                    width: 110,
-                    child: Text(
-                      'STATUS',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 20),
-                  // 5. Ações (Recusar e Aprovar)
-                  SizedBox(
-                    width: 230,
-                    child: Text(
-                      'AÇÕES',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-
-            // Linhas com Separador Nítido e Confortável
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: requests.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.border.withValues(alpha: 0.75),
-              ),
-              itemBuilder: (context, index) {
-                final req = requests[index];
-                final isProcessing = processingRequestId == req.id;
-                final member = getMember?.call(req.userId);
-
-                return _buildRow(context, req, member, isProcessing);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

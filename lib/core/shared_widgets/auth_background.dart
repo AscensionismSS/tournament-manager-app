@@ -17,7 +17,7 @@ class AuthBackground extends StatelessWidget {
         Image.asset(
           'assets/images/auth_background.png',
           fit: BoxFit.cover,
-          cacheWidth: 1920,
+          cacheWidth: 1600,
           filterQuality: FilterQuality.medium,
           errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
         ),

@@ -99,61 +99,12 @@ class DesktopSidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. Cabeçalho da Sidebar com Logo e Marca Oficial
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primaryNeon.withValues(alpha: 0.7),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/images/company_logo.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(
-                                Icons.sports_esports_rounded,
-                                size: 16,
-                                color: AppColors.primaryNeon,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TsurusBrandTitle(
-                              fontSize: 14,
-                              letterSpacing: 1.0,
-                            ),
-                            Text(
-                              'ARENA COMPETITIVA',
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(height: 12),
 
-                  // 2. Seletor de Modo Segmentado (Visível exclusivamente para administradores)
+                  // 1. Seletor de Modo Segmentado (Visível exclusivamente para administradores)
                   if (canManage) ...[
                     _buildModeSwitcher(context, activeMode),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     const Divider(color: AppColors.border, height: 1),
                   ],
 
@@ -210,13 +161,7 @@ class DesktopSidebar extends StatelessWidget {
               onTap: () {
                 if (currentMode != AppMode.player) {
                   AppModeState.setMode(AppMode.player);
-                  if (currentRoute.startsWith('/admin/tournaments')) {
-                    context.go('/tournaments');
-                  } else if (currentRoute.startsWith('/admin/members')) {
-                    context.go('/members');
-                  } else {
-                    context.go('/tournaments');
-                  }
+                  context.go(AppModeState.lastPlayerRoute);
                 }
               },
             ),
@@ -233,13 +178,7 @@ class DesktopSidebar extends StatelessWidget {
               onTap: () {
                 if (currentMode != AppMode.admin) {
                   AppModeState.setMode(AppMode.admin);
-                  if (currentRoute.startsWith('/tournaments')) {
-                    context.go('/admin/tournaments');
-                  } else if (currentRoute.startsWith('/members') || currentRoute.startsWith('/teams')) {
-                    context.go('/admin/members');
-                  } else {
-                    context.go('/admin/invites');
-                  }
+                  context.go(AppModeState.lastAdminRoute);
                 }
               },
             ),

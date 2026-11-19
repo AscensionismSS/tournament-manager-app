@@ -139,13 +139,10 @@ class _SystemSecurityDialogState extends State<SystemSecurityDialog> {
       icon: Icons.admin_panel_settings_rounded,
       iconColor: AppColors.primaryNeon,
       title: 'SEGURANÇA DO SISTEMA',
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 520),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
               Text(
                 'Controle centralizado de travas operacionais e modo de manutenção do ecossistema de torneios.',
                 style: TextStyle(
@@ -248,8 +245,6 @@ class _SystemSecurityDialogState extends State<SystemSecurityDialog> {
               ],
             ],
           ),
-        ),
-      ),
       actions: [
         AppButton(
           text: 'CANCELAR',
@@ -257,7 +252,6 @@ class _SystemSecurityDialogState extends State<SystemSecurityDialog> {
           size: AppButtonSize.medium,
           onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
         ),
-        const SizedBox(width: 8),
         AppButton(
           text: 'SALVAR ALTERAÇÕES',
           variant: AppButtonVariant.primary,

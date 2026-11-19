@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../features/tournaments/models/tournament_dto.dart';
 import '../theme/theme.dart';
-import 'app_card.dart';
 import 'tournament_card_sections.dart';
 
-/// Card unificado e oficial de exibição de Campeonatos na Arena Competitiva (Shared Widget - SRP).
-/// Orquestra de forma enxuta os sub-blocos de [TournamentCardBannerHeader], [TournamentCardSpecsRow]
-/// e [TournamentCardFooter], seguindo o Design System Dark e Dumb UI.
+/// Card oficial de exibição de Campeonatos na Arena Competitiva (Shared Widget - SRP & Dumb UI).
+/// Remodelado em formato estendido horizontal com capa panorâmica à esquerda e informações à direita.
 class AppTournamentCard extends StatefulWidget {
   final TournamentDto tournament;
   final VoidCallback? onTap;
@@ -28,7 +26,12 @@ class _AppTournamentCardState extends State<AppTournamentCard> {
   Widget build(BuildContext context) {
     final t = widget.tournament;
     final isOpen = t.isRegistrationOpen;
-    final accentColor = isOpen ? AppColors.dotaGold : AppColors.primaryNeon;
+
+    final Color borderColor = isOpen
+        ? AppColors.dotaGold.withValues(alpha: _isHovered ? 0.70 : 0.45)
+        : (_isHovered
+            ? AppColors.borderHighlight
+            : AppColors.border.withValues(alpha: 0.80));
 
     return RepaintBoundary(
       child: MouseRegion(
@@ -36,188 +39,102 @@ class _AppTournamentCardState extends State<AppTournamentCard> {
         onExit: (_) => setState(() => _isHovered = false),
         cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            color: _isHovered
+                ? AppColors.surfaceHighlight.withValues(alpha: 0.35)
+                : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isHovered
-                  ? accentColor.withValues(alpha: 0.85)
-                  : (isOpen
-                      ? AppColors.dotaGold.withValues(alpha: 0.45)
-                      : AppColors.border.withValues(alpha: 0.85)),
-              width: _isHovered ? 1.6 : 1.2,
+              color: borderColor,
+              width: 1.0, // Largura estritamente fixa para eliminar layout shift/tremor
             ),
             boxShadow: [
-              if (_isHovered)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _isHovered ? 0.36 : 0.20),
+                blurRadius: _isHovered ? 14 : 6,
+                offset: const Offset(0, 3),
+              ),
+              if (_isHovered && isOpen)
                 BoxShadow(
-                  color: accentColor.withValues(alpha: 0.22),
-                  blurRadius: 16,
-                  spreadRadius: 1,
+                  color: AppColors.dotaGold.withValues(alpha: 0.08),
+                  blurRadius: 10,
                 ),
             ],
           ),
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: widget.onTap,
-              borderRadius: BorderRadius.circular(18),
-              splashColor: accentColor.withValues(alpha: 0.12),
-              highlightColor: accentColor.withValues(alpha: 0.06),
-              child: AppCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 1. Capa / Banner Superior com Badges de Inscrição e Fase
-                    TournamentCardBannerHeader(tournament: t),
+              borderRadius: BorderRadius.circular(12),
+              splashColor: AppColors.dotaGold.withValues(alpha: 0.06),
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Alterna para layout vertical antes que os chips técnicos sofram truncamento (< 740px)
+                  final bool isMobile = constraints.maxWidth < 740;
 
-                    // 2. Corpo Principal com Informações Básicas do Campeonato
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t.name,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSubtitleRow(t),
-                            const SizedBox(height: 12),
-                            TournamentCardSpecsRow(tournament: t),
-                            const Spacer(),
-                            _buildSlotsProgress(t, isOpen, accentColor),
-                          ],
+                  // Em telas estreitas / mobile: layout vertical com altura intrínseca (zero overflow)
+                  if (isMobile) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 1. Banner no topo
+                        SizedBox(
+                          height: 108,
+                          child: TournamentCardBanner(
+                            tournament: t,
+                            width: double.infinity,
+                            isVertical: true,
+                          ),
                         ),
-                      ),
-                    ),
 
-                    // 3. Divisória Estética
-                    Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.border.withValues(alpha: 0.15),
-                            accentColor.withValues(alpha: 0.45),
-                            AppColors.border.withValues(alpha: 0.15),
-                          ],
+                        // 2. Conteúdo mobile abaixo
+                        TournamentCardMobileContent(
+                          tournament: t,
+                          isHovered: _isHovered,
                         ),
-                      ),
-                    ),
+                      ],
+                    );
+                  }
 
-                    // 4. Rodapé de Ação
-                    TournamentCardFooter(
-                      tournament: t,
-                      isHovered: _isHovered,
+                  // Em telas médias / desktop: layout horizontal estendido (168px)
+                  final bool isCompact = constraints.maxWidth < 900;
+                  final double bannerWidth = isCompact ? 200.0 : 270.0;
+
+                  return SizedBox(
+                    height: 168.0,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 1. Capa / Banner Lateral Esquerdo (Panorâmico e Integrado)
+                        TournamentCardBanner(
+                          tournament: t,
+                          width: bannerWidth,
+                          isVertical: false,
+                        ),
+
+                        // 2. Conteúdo Principal à Direita (Estendido Horizontalmente)
+                        Expanded(
+                          child: TournamentCardContent(
+                            tournament: t,
+                            isHovered: _isHovered,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildSubtitleRow(TournamentDto t) {
-    if (t.hasChampion) {
-      return Row(
-        children: [
-          const Icon(Icons.workspace_premium_rounded, size: 14, color: AppColors.dotaGold),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              'Campeão: ${t.championName}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppColors.dotaGoldLight,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        const Icon(Icons.calendar_today_rounded, size: 12, color: AppColors.textSecondary),
-        const SizedBox(width: 5),
-        Expanded(
-          child: Text(
-            'Início: ${t.startDateLabel} • Fim: ${t.endDateLabel}',
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSlotsProgress(TournamentDto t, bool isOpen, Color barColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.groups_rounded, size: 15, color: barColor),
-                const SizedBox(width: 6),
-                Text(
-                  t.teamsProgressLabel,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              t.slotsSummaryLabel,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: t.isFull
-                    ? AppColors.textSecondary
-                    : (isOpen ? AppColors.dotaGoldLight : AppColors.textSecondary),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: t.occupancyProgress,
-            minHeight: 5,
-            backgroundColor: AppColors.surfaceHighlight,
-            valueColor: AlwaysStoppedAnimation<Color>(barColor),
-          ),
-        ),
-      ],
     );
   }
 }

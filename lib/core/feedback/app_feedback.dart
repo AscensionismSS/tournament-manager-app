@@ -173,18 +173,12 @@ class _AppFeedbackToastState extends State<_AppFeedbackToast>
     _offsetAnimation = Tween<Offset>(
       begin: const Offset(0, 0.4),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    ));
+    ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(_controller);
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).chain(CurveTween(curve: Curves.easeOut)).animate(_controller);
 
     _controller.forward();
   }
@@ -197,6 +191,7 @@ class _AppFeedbackToastState extends State<_AppFeedbackToast>
 
   void _handleClose() async {
     await _controller.reverse();
+    if (!mounted) return;
     widget.onDismiss();
   }
 

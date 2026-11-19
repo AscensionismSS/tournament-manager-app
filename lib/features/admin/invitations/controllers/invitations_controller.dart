@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -16,15 +18,33 @@ enum InvitationFilterTab {
   const InvitationFilterTab(this.label);
 }
 
-/// Controller responsável pelo estado, busca, filtros e ações da gestão de convites.
+/// Controller responsável pelo estado, busca, filtros, paginação progressiva e ações da gestão de convites.
 class InvitationsController extends ChangeNotifier {
+  static const int pageSize = 20;
+
   final TextEditingController searchController = TextEditingController();
 
   List<InvitationDto> _allInvitations = [];
   List<InvitationDto> _filteredInvitations = [];
+  List<InvitationDto> _visibleInvitations = [];
+
+  int _visibleCount = pageSize;
+  bool _isLoadingMore = false;
+  bool _isDisposed = false;
+  int _fetchSeq = 0;
+  Timer? _loadMoreTimer;
+  Timer? _searchDebounceTimer;
+
+  int _activeCount = 0;
+  int _usedCount = 0;
+  int _revokedCount = 0;
+  int _expiredCount = 0;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _visibleCount < _filteredInvitations.length;
+  int get visibleCount => _visibleCount;
 
   bool _isCreating = false;
   bool get isCreating => _isCreating;
@@ -39,26 +59,42 @@ class InvitationsController extends ChangeNotifier {
   InvitationFilterTab get currentTab => _currentTab;
 
   List<InvitationDto> get invitations => _filteredInvitations;
+  List<InvitationDto> get visibleInvitations => _visibleInvitations;
   int get totalCount => _allInvitations.length;
 
-  int get activeCount =>
-      _allInvitations.where((i) => i.status == InvitationStatus.pending).length;
-
-  int get usedCount =>
-      _allInvitations.where((i) => i.status == InvitationStatus.used).length;
-
-  int get revokedCount =>
-      _allInvitations.where((i) => i.status == InvitationStatus.revoked).length;
-
-  int get expiredCount =>
-      _allInvitations.where((i) => i.status == InvitationStatus.expired).length;
+  int get activeCount => _activeCount;
+  int get usedCount => _usedCount;
+  int get revokedCount => _revokedCount;
+  int get expiredCount => _expiredCount;
 
   InvitationsController() {
     searchController.addListener(_onSearchChanged);
   }
 
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
+  void loadMore() {
+    if (_isDisposed || _isLoadingMore || !hasMore) return;
+    _isLoadingMore = true;
+    notifyListeners();
+
+    _loadMoreTimer?.cancel();
+    _loadMoreTimer = Timer(const Duration(milliseconds: 80), () {
+      if (_isDisposed) return;
+      _visibleCount = math.min(_visibleCount + pageSize, _filteredInvitations.length);
+      _isLoadingMore = false;
+      _rebuildVisibleSlice();
+      notifyListeners();
+    });
+  }
+
   /// Carrega a lista completa de convites a partir do endpoint GET /api/v1/invitations
   Future<void> fetchInvitations() async {
+    final int seq = ++_fetchSeq;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -68,6 +104,7 @@ class InvitationsController extends ChangeNotifier {
         ApiEndpoints.invitations,
         requiresAuth: true,
       );
+      if (_isDisposed || seq != _fetchSeq) return;
 
       final rawData = responseJson is List
           ? responseJson
@@ -83,11 +120,13 @@ class InvitationsController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } on ApiException catch (e) {
+      if (_isDisposed || seq != _fetchSeq) return;
       _errorMessage = e.message;
       _isLoading = false;
       notifyListeners();
-    } catch (e) {
-      _errorMessage = 'Falha inesperada ao carregar convites: $e';
+    } catch (_) {
+      if (_isDisposed || seq != _fetchSeq) return;
+      _errorMessage = 'Falha inesperada ao carregar convites.';
       _isLoading = false;
       notifyListeners();
     }
@@ -103,62 +142,108 @@ class InvitationsController extends ChangeNotifier {
   }
 
   void _onSearchChanged() {
-    _applyFilters();
-    notifyListeners();
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 180), () {
+      if (_isDisposed) return;
+      _applyFilters();
+      notifyListeners();
+    });
   }
 
   bool get hasActiveFilters =>
       _currentTab != InvitationFilterTab.all || searchController.text.trim().isNotEmpty;
 
   void clearSearch() {
+    _searchDebounceTimer?.cancel();
     searchController.clear();
     _applyFilters();
     notifyListeners();
   }
 
   void clearFilters() {
+    _searchDebounceTimer?.cancel();
     searchController.clear();
     _currentTab = InvitationFilterTab.all;
     _applyFilters();
     notifyListeners();
   }
 
-  /// Aplica a busca textual e o filtro de status selecionado
+  /// Aplica a busca textual, filtro de status e atualiza contadores em uma única passagem O(N)
   void _applyFilters() {
-    final query = searchController.text.trim().toLowerCase();
+    _loadMoreTimer?.cancel();
+    _visibleCount = pageSize;
+    _isLoadingMore = false;
 
-    _filteredInvitations = _allInvitations.where((invite) {
+    int pending = 0;
+    int used = 0;
+    int revoked = 0;
+    int expired = 0;
+
+    final query = searchController.text.trim().toLowerCase();
+    final filtered = <InvitationDto>[];
+
+    for (final invite in _allInvitations) {
+      final st = invite.status;
+      switch (st) {
+        case InvitationStatus.pending:
+          pending++;
+          break;
+        case InvitationStatus.used:
+          used++;
+          break;
+        case InvitationStatus.revoked:
+          revoked++;
+          break;
+        case InvitationStatus.expired:
+          expired++;
+          break;
+      }
+
       // 1. Filtro por Aba de Status
+      bool tabMatch = true;
       switch (_currentTab) {
         case InvitationFilterTab.all:
           break;
         case InvitationFilterTab.active:
-          if (invite.status != InvitationStatus.pending) return false;
+          tabMatch = st == InvitationStatus.pending;
           break;
         case InvitationFilterTab.used:
-          if (invite.status != InvitationStatus.used) return false;
+          tabMatch = st == InvitationStatus.used;
           break;
         case InvitationFilterTab.revoked:
-          if (invite.status != InvitationStatus.revoked) return false;
+          tabMatch = st == InvitationStatus.revoked;
           break;
         case InvitationFilterTab.expired:
-          if (invite.status != InvitationStatus.expired) return false;
+          tabMatch = st == InvitationStatus.expired;
           break;
       }
+      if (!tabMatch) continue;
 
       // 2. Filtro textual por Email, Código ou Papel
       if (query.isNotEmpty) {
         final emailMatch = invite.email.toLowerCase().contains(query);
         final codeMatch = invite.code.toLowerCase().contains(query);
         final roleMatch = invite.targetRole.toLowerCase().contains(query);
-
-        if (!emailMatch && !codeMatch && !roleMatch) {
-          return false;
-        }
+        if (!emailMatch && !codeMatch && !roleMatch) continue;
       }
 
-      return true;
-    }).toList();
+      filtered.add(invite);
+    }
+
+    _activeCount = pending;
+    _usedCount = used;
+    _revokedCount = revoked;
+    _expiredCount = expired;
+    _filteredInvitations = filtered;
+    _rebuildVisibleSlice();
+  }
+
+  void _rebuildVisibleSlice() {
+    if (_visibleCount >= _filteredInvitations.length) {
+      _visibleInvitations = _filteredInvitations;
+    } else {
+      _visibleInvitations = _filteredInvitations.sublist(0, _visibleCount);
+    }
   }
 
   /// Opções canônicas de expiração permitidas pelo backend (24, 48 ou 72 horas)
@@ -206,10 +291,10 @@ class InvitationsController extends ChangeNotifier {
         body: request.toJson(),
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
       final created = InvitationDto.fromJson(responseJson);
 
-      // Atualiza lista local ou insere no topo
       final existingIndex = _allInvitations.indexWhere((i) => i.id == created.id);
       if (existingIndex >= 0) {
         _allInvitations[existingIndex] = created;
@@ -244,6 +329,7 @@ class InvitationsController extends ChangeNotifier {
         ApiEndpoints.invitationRevoke(id),
         requiresAuth: true,
       );
+      if (_isDisposed) return false;
 
       final updated = InvitationDto.fromJson(responseJson);
 
@@ -273,8 +359,14 @@ class InvitationsController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _loadMoreTimer?.cancel();
+    _searchDebounceTimer?.cancel();
     searchController.removeListener(_onSearchChanged);
     searchController.dispose();
+    _allInvitations = [];
+    _filteredInvitations = [];
+    _visibleInvitations = [];
     super.dispose();
   }
 }

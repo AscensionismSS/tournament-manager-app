@@ -309,7 +309,7 @@ class TournamentDto {
           status == TournamentStatus.draft ||
           status == TournamentStatus.drafting) {
         final count = registeredPlayerCount ?? draftPlayerPool.length;
-        return '$count ${count == 1 ? "jogador inscrito" : "jogadores inscritos"}';
+        return '$count ${count == 1 ? "jogador" : "jogadores"}';
       }
       return '$registeredTeamsCount / $teamCount times';
     }

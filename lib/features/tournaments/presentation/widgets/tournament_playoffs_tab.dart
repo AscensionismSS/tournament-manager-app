@@ -64,10 +64,8 @@ class _TournamentPlayoffsTabState extends State<TournamentPlayoffsTab> {
       );
     }
 
-    // Mapeia partidas por SlotCode para acesso rápido e passivo
-    final matchesByCode = {
-      for (final m in widget.controller.matches) m.slotCode: m,
-    };
+    // Mapa de partidas pré-computado em O(1) pelo Controller (evita realocar Map e invalidar cache do canvas)
+    final matchesByCode = widget.controller.matchesByCode;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

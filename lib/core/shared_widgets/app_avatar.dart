@@ -25,36 +25,60 @@ class AppAvatar extends StatelessWidget {
     this.borderWidth = 1.0,
   });
 
-  /// Factory padronizada para avatares de conta autenticada (Steam com fallback para Logo Tsurus).
+  /// Detecta se a URL é vazia ou corresponde ao avatar genérico "?" padrão da Valve/Steam.
+  static bool isGenericSteamPlaceholder(String? url) {
+    if (url == null) return true;
+    final clean = url.trim().toLowerCase();
+    if (clean.isEmpty) return true;
+    return clean.contains('fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb') ||
+        clean.contains('default_avatar');
+  }
+
+  /// Placeholder escuro oficial com o símbolo Tsurus da logo do site (sem letras/iniciais e sem fundo branco).
+  static Widget buildTsurusSymbolFallback({required double size}) {
+    final int targetCacheSize = (size * 2.0).round().clamp(64, 256);
+    return Container(
+      width: size,
+      height: size,
+      color: AppColors.canvasSurface,
+      alignment: Alignment.center,
+      child: ClipOval(
+        child: Image.asset(
+          'assets/images/company_logo.jpg',
+          width: size,
+          height: size,
+          cacheWidth: targetCacheSize,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Icon(
+            Icons.sports_esports_rounded,
+            size: size * 0.48,
+            color: AppColors.primaryNeon.withValues(alpha: 0.75),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Factory padronizada para avatares de conta autenticada (Steam real com fallback para Símbolo Tsurus).
   factory AppAvatar.steamOrBrand({
     Key? key,
     String? avatarUrl,
     double size = 32,
   }) {
     final trimmed = avatarUrl?.trim();
-    final hasSteam = trimmed != null && trimmed.isNotEmpty;
+    final hasRealSteamPhoto = !isGenericSteamPlaceholder(trimmed);
     return AppAvatar(
       key: key,
-      imageUrl: hasSteam ? trimmed : null,
+      imageUrl: hasRealSteamPhoto ? trimmed : null,
       assetPath: 'assets/images/company_logo.jpg',
       radius: size / 2,
-      borderColor: hasSteam
+      borderColor: hasRealSteamPhoto
           ? AppColors.dotaGoldLight.withValues(alpha: 0.75)
           : AppColors.primaryNeon.withValues(alpha: 0.6),
       borderWidth: 1.2,
     );
   }
 
-  String _getInitials() {
-    if (name == null || name!.trim().isEmpty) return '';
-    final parts = name!.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) {
-      final first = parts[0].isNotEmpty ? parts[0][0] : '';
-      final second = parts[1].isNotEmpty ? parts[1][0] : '';
-      return (first + second).toUpperCase();
-    }
-    return parts[0].substring(0, parts[0].length.clamp(1, 2)).toUpperCase();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,27 +91,37 @@ class AppAvatar extends StatelessWidget {
 
     Widget content;
     final effectiveUrl = imageUrl?.trim();
+    final int targetCacheSize = (size * 2).round().clamp(32, 256);
 
-    if (effectiveUrl != null && effectiveUrl.isNotEmpty) {
-      if (effectiveUrl.startsWith('http://') || effectiveUrl.startsWith('https://')) {
-        content = Image.network(
-          effectiveUrl,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildAssetOrFallback(size, fg),
-        );
-      } else {
-        content = Image.asset(
-          effectiveUrl,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildAssetOrFallback(size, fg),
-        );
-      }
+    final bool hasValidNetworkUrl = effectiveUrl != null &&
+        effectiveUrl.isNotEmpty &&
+        !isGenericSteamPlaceholder(effectiveUrl) &&
+        (effectiveUrl.startsWith('http://') || effectiveUrl.startsWith('https://'));
+
+    if (hasValidNetworkUrl) {
+      content = Image.network(
+        effectiveUrl,
+        width: size,
+        height: size,
+        cacheWidth: targetCacheSize,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildAssetOrFallback(size, targetCacheSize, fg),
+      );
+    } else if (effectiveUrl != null &&
+        effectiveUrl.isNotEmpty &&
+        !isGenericSteamPlaceholder(effectiveUrl)) {
+      content = Image.asset(
+        effectiveUrl,
+        width: size,
+        height: size,
+        cacheWidth: targetCacheSize,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildAssetOrFallback(size, targetCacheSize, fg),
+      );
     } else {
-      content = _buildAssetOrFallback(size, fg);
+      content = _buildAssetOrFallback(size, targetCacheSize, fg);
     }
 
     return Container(
@@ -104,40 +138,19 @@ class AppAvatar extends StatelessWidget {
     );
   }
 
-  Widget _buildAssetOrFallback(double size, Color fg) {
+  Widget _buildAssetOrFallback(double size, int targetCacheSize, Color fg) {
     if (assetPath != null && assetPath!.isNotEmpty) {
       return Image.asset(
         assetPath!,
         width: size,
         height: size,
+        cacheWidth: targetCacheSize,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildFallback(fg),
+        errorBuilder: (context, error, stackTrace) =>
+            buildTsurusSymbolFallback(size: size),
       );
     }
-    return _buildFallback(fg);
+    return buildTsurusSymbolFallback(size: size);
   }
 
-  Widget _buildFallback(Color fg) {
-    final initials = _getInitials();
-    if (initials.isNotEmpty) {
-      return Center(
-        child: Text(
-          initials,
-          style: TextStyle(
-            color: fg,
-            fontSize: radius * 0.75,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
-          ),
-        ),
-      );
-    }
-    return Center(
-      child: Icon(
-        Icons.person_rounded,
-        size: radius * 1.1,
-        color: fg.withValues(alpha: 0.7),
-      ),
-    );
-  }
 }

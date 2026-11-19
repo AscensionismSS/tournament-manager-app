@@ -249,7 +249,9 @@ class AppRouter {
   );
 }
 
-/// Transição suave e sutil (apenas fade leve de 140ms, sem escala ou distorção de fundo)
+final Animatable<double> _subtleFadeTween = CurveTween(curve: Curves.easeOut);
+
+/// Transição suave e sutil (apenas fade leve de 140ms, sem escala, vazamento de listeners ou distorção)
 CustomTransitionPage<T> _buildSubtleFadePage<T>({
   required LocalKey key,
   required Widget child,
@@ -261,10 +263,7 @@ CustomTransitionPage<T> _buildSubtleFadePage<T>({
     reverseTransitionDuration: const Duration(milliseconds: 140),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       return FadeTransition(
-        opacity: CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOut,
-        ),
+        opacity: animation.drive(_subtleFadeTween),
         child: child,
       );
     },

@@ -11,6 +11,9 @@ class TournamentsController extends ChangeNotifier {
   final TextEditingController searchController = TextEditingController();
 
   List<TournamentDto> _tournaments = [];
+  List<TournamentDto> _filteredTournaments = [];
+  List<TournamentDto> _openTournaments = [];
+  List<TournamentDto> _closedTournaments = [];
   List<TournamentDto> get tournaments => _tournaments;
 
   bool _isLoading = false;
@@ -29,6 +32,7 @@ class TournamentsController extends ChangeNotifier {
 
   Timer? _debounceTimer;
   bool _isDisposed = false;
+  int _fetchSeq = 0;
 
   TournamentsController() {
     searchController.addListener(_onSearchChanged);
@@ -47,18 +51,23 @@ class TournamentsController extends ChangeNotifier {
     searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     _tournaments = [];
+    _filteredTournaments = [];
+    _openTournaments = [];
+    _closedTournaments = [];
     super.dispose();
   }
 
   void _onSearchChanged() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+      _rebuildFilteredLists();
       notifyListeners();
     });
   }
 
   void onSearchSubmitted(String _) {
     _debounceTimer?.cancel();
+    _rebuildFilteredLists();
     notifyListeners();
   }
 
@@ -67,12 +76,19 @@ class TournamentsController extends ChangeNotifier {
       _selectedStatus != null ||
       searchController.text.trim().isNotEmpty;
 
-  /// Lista de torneios filtrada por busca, status de inscrição (aberta/fechada) e fase
-  List<TournamentDto> get filteredTournaments {
+  /// Lista de torneios pré-filtrada em O(1)
+  List<TournamentDto> get filteredTournaments => _filteredTournaments;
+
+  /// Torneios filtrados que estão com inscrições abertas (pré-computado O(1))
+  List<TournamentDto> get openRegistrationTournaments => _openTournaments;
+
+  /// Torneios filtrados que estão com inscrições fechadas (pré-computado O(1))
+  List<TournamentDto> get closedRegistrationTournaments => _closedTournaments;
+
+  void _rebuildFilteredLists() {
     final query = searchController.text.trim().toLowerCase();
 
     final filtered = _tournaments.where((t) {
-      // 1. Filtro de Inscrição Aberta / Fechada
       if (_selectedRegistrationOpen != null) {
         if (_selectedRegistrationOpen == true && !t.isRegistrationOpen) {
           return false;
@@ -82,12 +98,10 @@ class TournamentsController extends ChangeNotifier {
         }
       }
 
-      // 2. Filtro de Fase / Status específico
       if (_selectedStatus != null && t.status != _selectedStatus) {
         return false;
       }
 
-      // 3. Busca textual
       if (query.isEmpty) return true;
       return t.name.toLowerCase().contains(query) ||
           t.formatLabel.toLowerCase().contains(query) ||
@@ -97,7 +111,6 @@ class TournamentsController extends ChangeNotifier {
           (t.championName?.toLowerCase().contains(query) ?? false);
     }).toList();
 
-    // Ordena priorizando campeonatos com inscrições abertas e mais recentes
     filtered.sort((a, b) {
       if (a.isRegistrationOpen != b.isRegistrationOpen) {
         return a.isRegistrationOpen ? -1 : 1;
@@ -105,19 +118,24 @@ class TournamentsController extends ChangeNotifier {
       return b.createdAtUtc.compareTo(a.createdAtUtc);
     });
 
-    return filtered;
+    final open = <TournamentDto>[];
+    final closed = <TournamentDto>[];
+    for (final t in filtered) {
+      if (t.isRegistrationOpen) {
+        open.add(t);
+      } else if (t.isRegistrationClosed) {
+        closed.add(t);
+      }
+    }
+
+    _filteredTournaments = filtered;
+    _openTournaments = open;
+    _closedTournaments = closed;
   }
-
-  /// Torneios filtrados que estão com inscrições abertas
-  List<TournamentDto> get openRegistrationTournaments =>
-      filteredTournaments.where((t) => t.isRegistrationOpen).toList();
-
-  /// Torneios filtrados que estão com inscrições fechadas (em andamento ou concluídos)
-  List<TournamentDto> get closedRegistrationTournaments =>
-      filteredTournaments.where((t) => t.isRegistrationClosed).toList();
 
   /// Carrega todos os campeonatos da arena via GET /api/v1/tournaments
   Future<void> fetchTournaments() async {
+    final int seq = ++_fetchSeq;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -127,6 +145,7 @@ class TournamentsController extends ChangeNotifier {
         status: _selectedStatus?.value.toString(),
       );
       final responseJson = await ApiClient.get(url, requiresAuth: true);
+      if (_isDisposed || seq != _fetchSeq) return;
 
       final rawData = responseJson['data'] ?? responseJson['items'] ?? responseJson;
       final List<dynamic> listData = rawData is List ? rawData : <dynamic>[];
@@ -135,13 +154,18 @@ class TournamentsController extends ChangeNotifier {
           .map((item) => TournamentDto.fromJson(item as Map<String, dynamic>))
           .where((t) => t.status != TournamentStatus.draft)
           .toList();
+      _rebuildFilteredLists();
     } on ApiException catch (e) {
+      if (_isDisposed || seq != _fetchSeq) return;
       _errorMessage = e.message;
-    } catch (e) {
-      _errorMessage = 'Não foi possível carregar os campeonatos da arena: $e';
+    } catch (_) {
+      if (_isDisposed || seq != _fetchSeq) return;
+      _errorMessage = 'Não foi possível carregar os campeonatos da arena.';
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (!_isDisposed && seq == _fetchSeq) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -149,6 +173,7 @@ class TournamentsController extends ChangeNotifier {
   void setRegistrationFilter(bool? isOpen) {
     if (_selectedRegistrationOpen != isOpen) {
       _selectedRegistrationOpen = isOpen;
+      _rebuildFilteredLists();
       notifyListeners();
     }
   }
@@ -157,6 +182,7 @@ class TournamentsController extends ChangeNotifier {
   void setStatusFilter(TournamentStatus? status) {
     if (_selectedStatus != status) {
       _selectedStatus = status;
+      _rebuildFilteredLists();
       notifyListeners();
       fetchTournaments();
     }
@@ -168,6 +194,7 @@ class TournamentsController extends ChangeNotifier {
     searchController.clear();
     _selectedRegistrationOpen = null;
     _selectedStatus = null;
+    _rebuildFilteredLists();
     notifyListeners();
     if (hadServerStatusFilter) {
       fetchTournaments();

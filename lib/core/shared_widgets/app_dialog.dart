@@ -34,18 +34,26 @@ class AppDialog extends StatelessWidget {
     this.onClose,
   });
 
+  static final TextStyle _headerTitleStyle = GoogleFonts.oswald(
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.8,
+  );
+
   @override
   Widget build(BuildContext context) {
     final effectiveColor = iconColor ?? AppColors.primaryNeon;
 
     return Dialog(
       backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Container(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Container(
             decoration: BoxDecoration(
               color: AppColors.cardSurface,
               borderRadius: BorderRadius.circular(16),
@@ -106,12 +114,7 @@ class AppDialog extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: Text(
                               title.toUpperCase(),
-                              style: GoogleFonts.oswald(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                              ),
+                              style: _headerTitleStyle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -140,12 +143,7 @@ class AppDialog extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title.toUpperCase(),
-                            style: GoogleFonts.oswald(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
+                            style: _headerTitleStyle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -187,7 +185,6 @@ class AppDialog extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

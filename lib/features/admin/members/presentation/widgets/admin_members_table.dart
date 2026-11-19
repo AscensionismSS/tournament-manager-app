@@ -6,6 +6,164 @@ import '../../../../../core/utils/safe_url_launcher.dart';
 import '../../../../members/models/member_dto.dart';
 import 'admin_member_role_badge.dart';
 
+/// Cabeçalho modular da tabela desktop de membros (permite virtualização via Slivers).
+class AdminMembersTableHeader extends StatelessWidget {
+  final bool roundTopCorners;
+
+  const AdminMembersTableHeader({
+    super.key,
+    this.roundTopCorners = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHighlight,
+        borderRadius: roundTopCorners
+            ? const BorderRadius.vertical(top: Radius.circular(12))
+            : null,
+        border: roundTopCorners
+            ? const Border(
+                top: BorderSide(color: AppColors.border),
+                left: BorderSide(color: AppColors.border),
+                right: BorderSide(color: AppColors.border),
+                bottom: BorderSide(color: AppColors.border),
+              )
+            : null,
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 260,
+            child: Text(
+              'MEMBRO',
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          SizedBox(width: 24),
+          SizedBox(
+            width: 240,
+            child: Text(
+              'STEAM',
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Spacer(),
+          SizedBox(
+            width: 130,
+            child: Text(
+              'CARGO',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          SizedBox(width: 16),
+          SizedBox(
+            width: 140,
+            child: Text(
+              'STATUS DA CONTA',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          SizedBox(width: 16),
+          SizedBox(
+            width: 90,
+            child: Text(
+              'MODERAÇÃO',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Linha modular de membro (reutilizável tanto em SliverList virtualizada quanto em scroll horizontal).
+class AdminMembersTableRow extends StatelessWidget {
+  final MemberDto member;
+  final bool isProcessing;
+  final bool isLast;
+  final bool framed;
+  final ValueChanged<MemberDto> onToggleStatus;
+
+  const AdminMembersTableRow({
+    super.key,
+    required this.member,
+    required this.isProcessing,
+    required this.onToggleStatus,
+    this.isLast = false,
+    this.framed = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rowContent = AdminMembersTable._buildRowContent(
+      context,
+      member,
+      isProcessing,
+      onToggleStatus,
+    );
+
+    if (!framed) return rowContent;
+
+    return RepaintBoundary(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: isLast
+              ? const BorderRadius.vertical(bottom: Radius.circular(12))
+              : null,
+          border: Border(
+            left: const BorderSide(color: AppColors.border),
+            right: const BorderSide(color: AppColors.border),
+            bottom: BorderSide(
+              color: isLast
+                  ? AppColors.border
+                  : AppColors.border.withValues(alpha: 0.75),
+            ),
+          ),
+        ),
+        child: rowContent,
+      ),
+    );
+  }
+}
+
 /// Tabela Desktop oficial para Gerenciamento de Membros e Identidade Steam.
 class AdminMembersTable extends StatelessWidget {
   final List<MemberDto> members;
@@ -21,127 +179,62 @@ class AdminMembersTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: [
-            // Cabeçalho da Tabela
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              color: AppColors.surfaceHighlight,
-              child: const Row(
-                children: [
-                  // 1. Membro (Nick da Plataforma + Email com cópia)
-                  SizedBox(
-                    width: 260,
-                    child: Text(
-                      'MEMBRO',
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double tableWidth = constraints.maxWidth < 960.0 ? 960.0 : constraints.maxWidth;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  children: [
+                    const AdminMembersTableHeader(),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: members.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.border.withValues(alpha: 0.75),
                       ),
+                      itemBuilder: (context, index) {
+                        final member = members[index];
+                        final isProcessing = processingUserId == member.userId;
+
+                        return _buildRowContent(
+                          context,
+                          member,
+                          isProcessing,
+                          onToggleStatus,
+                        );
+                      },
                     ),
-                  ),
-                  SizedBox(width: 24),
-                  // 2. Coluna dedicada de Steam (Agrupada à esquerda perto do Membro)
-                  SizedBox(
-                    width: 240,
-                    child: Text(
-                      'STEAM',
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  Spacer(),
-                  // 3. Cargo
-                  SizedBox(
-                    width: 130,
-                    child: Text(
-                      'CARGO',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  // 4. Status da Conta (Login)
-                  SizedBox(
-                    width: 140,
-                    child: Text(
-                      'STATUS DA CONTA',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  // 5. Ações Administrativas (Moderação)
-                  SizedBox(
-                    width: 90,
-                    child: Text(
-                      'MODERAÇÃO',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-
-            // Linhas da Tabela
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: members.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.border.withValues(alpha: 0.75),
-              ),
-              itemBuilder: (context, index) {
-                final member = members[index];
-                final isProcessing = processingUserId == member.userId;
-
-                return _buildRow(context, member, isProcessing);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildRow(BuildContext context, MemberDto member, bool isProcessing) {
+  static Widget _buildRowContent(
+    BuildContext context,
+    MemberDto member,
+    bool isProcessing,
+    ValueChanged<MemberDto> onToggleStatus,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       color: Colors.transparent,

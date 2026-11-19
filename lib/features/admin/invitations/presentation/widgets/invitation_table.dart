@@ -4,6 +4,187 @@ import '../../../../../core/theme/theme.dart';
 import '../../models/invitation_dto.dart';
 import 'invitation_status_badge.dart';
 
+/// Cabeçalho modular da tabela desktop de convites (permite virtualização via Slivers).
+class InvitationTableHeader extends StatelessWidget {
+  final bool roundTopCorners;
+
+  const InvitationTableHeader({
+    super.key,
+    this.roundTopCorners = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHighlight,
+        borderRadius: roundTopCorners
+            ? const BorderRadius.vertical(top: Radius.circular(12))
+            : null,
+        border: roundTopCorners
+            ? const Border(
+                top: BorderSide(color: AppColors.border),
+                left: BorderSide(color: AppColors.border),
+                right: BorderSide(color: AppColors.border),
+                bottom: BorderSide(color: AppColors.border),
+              )
+            : null,
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: 14),
+              child: Text(
+                'CONVIDADO',
+                style: TextStyle(
+                  fontFamily: 'Oswald',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 110,
+            child: Padding(
+              padding: EdgeInsets.only(right: 14),
+              child: Text(
+                'ROLE',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Oswald',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 125,
+            child: Padding(
+              padding: EdgeInsets.only(right: 14),
+              child: Text(
+                'LINK DE CONVITE',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Oswald',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 110,
+            child: Padding(
+              padding: EdgeInsets.only(right: 14),
+              child: Text(
+                'STATUS',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Oswald',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 155,
+            child: Padding(
+              padding: EdgeInsets.only(right: 14),
+              child: Text(
+                'EMISSÃO / VALIDADE',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Oswald',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 60,
+            child: Text(
+              'AÇÕES',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Oswald',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Linha modular da tabela de convites (reutilizável em SliverList virtualizada ou scroll horizontal).
+class InvitationTableRow extends StatelessWidget {
+  final InvitationDto invite;
+  final bool isRevoking;
+  final bool isLast;
+  final bool framed;
+  final ValueChanged<InvitationDto> onCopyCode;
+  final ValueChanged<InvitationDto> onRevoke;
+
+  const InvitationTableRow({
+    super.key,
+    required this.invite,
+    required this.isRevoking,
+    required this.onCopyCode,
+    required this.onRevoke,
+    this.isLast = false,
+    this.framed = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rowContent = InvitationTable._buildRowContent(
+      invite,
+      isRevoking: isRevoking,
+      onCopyCode: onCopyCode,
+      onRevoke: onRevoke,
+    );
+
+    if (!framed) return rowContent;
+
+    return RepaintBoundary(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: isLast
+              ? const BorderRadius.vertical(bottom: Radius.circular(12))
+              : null,
+          border: const Border(
+            left: BorderSide(color: AppColors.border),
+            right: BorderSide(color: AppColors.border),
+            bottom: BorderSide(color: AppColors.border),
+          ),
+        ),
+        child: rowContent,
+      ),
+    );
+  }
+}
+
 /// Tabela oficial desktop para gestão de convites (SRP).
 /// Layout aperfeiçoado com proporções harmônicas, espaçamentos generosos entre colunas
 /// e badges elegantes sem risco de sobreposição ou truncamento de texto.
@@ -23,154 +204,57 @@ class InvitationTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: [
-            // Cabeçalho da Tabela com proporções equilibradas
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              color: AppColors.surfaceHighlight,
-              child: const Row(
-                children: [
-                  // 1. Convidado (Expanded - ocupa o espaço restante)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 14),
-                      child: Text(
-                        'CONVIDADO',
-                        style: TextStyle(
-                          fontFamily: 'Oswald',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double tableWidth = constraints.maxWidth < 840.0 ? 840.0 : constraints.maxWidth;
 
-                  // 2. Role (width: 110, Centralizado)
-                  SizedBox(
-                    width: 110,
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 14),
-                      child: Text(
-                        'ROLE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Oswald',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  children: [
+                    const InvitationTableHeader(),
+                    const Divider(color: AppColors.border, height: 1),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: invitations.length,
+                      separatorBuilder: (_, __) => const Divider(color: AppColors.border, height: 1),
+                      itemBuilder: (context, index) {
+                        final invite = invitations[index];
+                        return _buildRowContent(
+                          invite,
+                          isRevoking: revokingId == invite.id,
+                          onCopyCode: onCopyCode,
+                          onRevoke: onRevoke,
+                        );
+                      },
                     ),
-                  ),
-
-                  // 3. Link de Convite (width: 125, Centralizado)
-                  SizedBox(
-                    width: 125,
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 14),
-                      child: Text(
-                        'LINK DE CONVITE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Oswald',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 4. Status (width: 110, Centralizado)
-                  SizedBox(
-                    width: 110,
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 14),
-                      child: Text(
-                        'STATUS',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Oswald',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 5. Emissão / Validade (width: 155, Centralizado)
-                  SizedBox(
-                    width: 155,
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 14),
-                      child: Text(
-                        'EMISSÃO / VALIDADE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Oswald',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 6. Ações (width: 60, Centralizado)
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      'AÇÕES',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Oswald',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            const Divider(color: AppColors.border, height: 1),
-
-            // Linhas de dados com respiro harmônico
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: invitations.length,
-              separatorBuilder: (_, __) => const Divider(color: AppColors.border, height: 1),
-              itemBuilder: (context, index) {
-                final invite = invitations[index];
-                return _buildRow(invite);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildRow(InvitationDto invite) {
-    final isRevoking = revokingId == invite.id;
+  static Widget _buildRowContent(
+    InvitationDto invite, {
+    required bool isRevoking,
+    required ValueChanged<InvitationDto> onCopyCode,
+    required ValueChanged<InvitationDto> onRevoke,
+  }) {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),

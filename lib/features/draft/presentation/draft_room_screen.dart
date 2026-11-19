@@ -5,6 +5,7 @@ import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/shared_widgets/shared_widgets.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/theme/theme.dart';
+import '../../auth/models/login_response.dart';
 import '../../tournaments/models/tournament_dto.dart';
 import '../../tournaments/models/tournament_status.dart';
 import '../controllers/draft_controller.dart';
@@ -61,16 +62,18 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
       final response = await ApiClient.get(
         ApiEndpoints.tournamentById(widget.tournamentId),
       );
-      final t = TournamentDto.fromJson(response);
-      if (mounted) {
-        setState(() {
-          _tournament = t;
-          _isLoadingTournament = false;
-        });
+      if (!mounted) return;
+      final raw = response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : response;
+      final t = TournamentDto.fromJson(raw);
+      setState(() {
+        _tournament = t;
+        _isLoadingTournament = false;
+      });
 
-        if (t.draftSessionId != null) {
-          await _draftController.fetchSnapshot(t.draftSessionId!);
-        }
+      if (t.draftSessionId != null) {
+        await _draftController.fetchSnapshot(t.draftSessionId!);
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -79,10 +82,10 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
           _isLoadingTournament = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _tournamentError = 'Falha ao carregar campeonato: $e';
+          _tournamentError = 'Não foi possível carregar os dados do campeonato.';
           _isLoadingTournament = false;
         });
       }
@@ -95,8 +98,14 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
     super.dispose();
   }
 
+  String get _adminQuerySuffix {
+    final isFromAdmin =
+        GoRouterState.of(context).uri.queryParameters['from'] == 'admin';
+    return isFromAdmin ? '?from=admin' : '';
+  }
+
   void _onBack() {
-    context.go('/tournaments/${widget.tournamentId}');
+    context.go('/tournaments/${widget.tournamentId}/overview$_adminQuerySuffix');
   }
 
   Future<void> _handleAdvanceToOrder() async {
@@ -153,7 +162,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
           message:
               'Draft concluído com sucesso! Equipes consolidadas no campeonato.',
         );
-        context.go('/tournaments/${widget.tournamentId}/teams');
+        context.go('/tournaments/${widget.tournamentId}/teams$_adminQuerySuffix');
       } else {
         AppFeedback.showError(context, message: error);
       }
@@ -171,7 +180,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
         size: AppButtonSize.small,
         variant: AppButtonVariant.primary,
         customColor: AppColors.dotaGold,
-        onPressed: () => context.go('/tournaments/${widget.tournamentId}/teams'),
+        onPressed: () =>
+            context.go('/tournaments/${widget.tournamentId}/teams$_adminQuerySuffix'),
       );
     }
 
@@ -239,138 +249,142 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
       );
     }
 
-    final canManage =
-        TokenStorage.profileNotifier.value?.canManageTournaments ?? false;
+    return ValueListenableBuilder<LoginResponse?>(
+      valueListenable: TokenStorage.profileNotifier,
+      builder: (context, userProfile, _) {
+        final canManage = userProfile?.canManageTournaments ?? false;
 
-    if (_isLoadingTournament && _tournament == null) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: AppLoadingState(message: 'Carregando dados do campeonato...'),
-        ),
-      );
-    }
+        if (_isLoadingTournament && _tournament == null) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: AppLoadingState(message: 'Carregando dados do campeonato...'),
+            ),
+          );
+        }
 
-    if (_tournamentError != null && _tournament == null) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: AppEmptyState(
-            icon: Icons.error_outline_rounded,
-            title: 'Erro ao carregar campeonato',
-            message: _tournamentError!,
-            actionLabel: 'Tentar Novamente',
-            onActionPressed: _loadTournamentAndDraft,
-          ),
-        ),
-      );
-    }
-
-    final t = _tournament;
-    if (t == null || t.draftSessionId == null) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: AppEmptyState(
-            icon: Icons.shuffle_rounded,
-            title: 'SESSÃO DE DRAFT NÃO ENCONTRADA',
-            message: 'Este campeonato não possui uma sessão de draft válida.',
-            actionLabel: 'Voltar ao Campeonato',
-            onActionPressed: _onBack,
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: AnimatedBuilder(
-          animation: _draftController,
-          builder: (context, _) {
-            if (_draftController.isLoading && _draftController.snapshot == null) {
-              return const Center(
-                child: AppLoadingState(
-                  message: 'Conectando à Sala de Draft em tempo real...',
-                ),
-              );
-            }
-
-            if (_draftController.errorMessage != null &&
-                _draftController.snapshot == null) {
-              return Center(
-                child: AppEmptyState(
-                  icon: Icons.error_outline_rounded,
-                  title: 'Erro ao carregar estado do Draft',
-                  message: _draftController.errorMessage!,
-                  actionLabel: 'Tentar Novamente',
-                  onActionPressed: () =>
-                      _draftController.fetchSnapshot(t.draftSessionId!),
-                ),
-              );
-            }
-
-            final snapshot = _draftController.snapshot;
-            if (snapshot == null) {
-              return const Center(
-                child: AppEmptyState(
-                  icon: Icons.hourglass_empty_rounded,
-                  title: 'AGUARDANDO DADOS DO DRAFT',
-                  message: 'Nenhum snapshot de draft recebido.',
-                ),
-              );
-            }
-
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1800),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 1. Barra de Navegação Superior da Sala de Draft
-                      _buildTopNavigationHeader(t, snapshot),
-
-                      const SizedBox(height: 12),
-
-                      // 2. Stepper das 4 Etapas com Ação Integrada de Avanço
-                      DraftHeaderStepper(
-                        currentStep: snapshot.currentStepNumber,
-                        stateLabel: snapshot.state,
-                        action: _buildStepAction(snapshot, canManage),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      // 3. Conteúdo Principal com Espaço Amplo (Teams Grid + Player Bucket)
-                      Expanded(
-                        child: (snapshot.currentStepNumber >= 3 ||
-                                snapshot.isDraftingStarters ||
-                                snapshot.isDraftingSubstitutes ||
-                                snapshot.isCompleted)
-                            ? DraftStartersPhaseView(
-                                controller: _draftController,
-                                snapshot: snapshot,
-                                canManage: canManage,
-                                isLockedByPlayoffs: t.status ==
-                                        TournamentStatus.playoffs ||
-                                    t.status == TournamentStatus.completed,
-                              )
-                            : DraftCaptainsPhaseView(
-                                controller: _draftController,
-                                snapshot: snapshot,
-                                canManage: canManage,
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
+        if (_tournamentError != null && _tournament == null) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: AppEmptyState(
+                icon: Icons.error_outline_rounded,
+                title: 'Erro ao carregar campeonato',
+                message: _tournamentError!,
+                actionLabel: 'Tentar Novamente',
+                onActionPressed: _loadTournamentAndDraft,
               ),
-            );
-          },
-        ),
-      ),
+            ),
+          );
+        }
+
+        final t = _tournament;
+        if (t == null || t.draftSessionId == null) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: AppEmptyState(
+                icon: Icons.shuffle_rounded,
+                title: 'SESSÃO DE DRAFT NÃO ENCONTRADA',
+                message: 'Este campeonato não possui uma sessão de draft válida.',
+                actionLabel: 'Voltar ao Campeonato',
+                onActionPressed: _onBack,
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            child: AnimatedBuilder(
+              animation: _draftController,
+              builder: (context, _) {
+                if (_draftController.isLoading && _draftController.snapshot == null) {
+                  return const Center(
+                    child: AppLoadingState(
+                      message: 'Conectando à Sala de Draft em tempo real...',
+                    ),
+                  );
+                }
+
+                if (_draftController.errorMessage != null &&
+                    _draftController.snapshot == null) {
+                  return Center(
+                    child: AppEmptyState(
+                      icon: Icons.error_outline_rounded,
+                      title: 'Erro ao carregar estado do Draft',
+                      message: _draftController.errorMessage!,
+                      actionLabel: 'Tentar Novamente',
+                      onActionPressed: () =>
+                          _draftController.fetchSnapshot(t.draftSessionId!),
+                    ),
+                  );
+                }
+
+                final snapshot = _draftController.snapshot;
+                if (snapshot == null) {
+                  return const Center(
+                    child: AppEmptyState(
+                      icon: Icons.hourglass_empty_rounded,
+                      title: 'AGUARDANDO DADOS DO DRAFT',
+                      message: 'Nenhum snapshot de draft recebido.',
+                    ),
+                  );
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1800),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. Barra de Navegação Superior da Sala de Draft
+                          _buildTopNavigationHeader(t, snapshot),
+
+                          const SizedBox(height: 12),
+
+                          // 2. Stepper das 4 Etapas com Ação Integrada de Avanço
+                          DraftHeaderStepper(
+                            currentStep: snapshot.currentStepNumber,
+                            stateLabel: snapshot.state,
+                            action: _buildStepAction(snapshot, canManage),
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // 3. Conteúdo Principal com Espaço Amplo (Teams Grid + Player Bucket)
+                          Expanded(
+                            child: (snapshot.currentStepNumber >= 3 ||
+                                    snapshot.isDraftingStarters ||
+                                    snapshot.isDraftingSubstitutes ||
+                                    snapshot.isCompleted)
+                                ? DraftStartersPhaseView(
+                                    controller: _draftController,
+                                    snapshot: snapshot,
+                                    canManage: canManage,
+                                    isLockedByPlayoffs: t.status ==
+                                            TournamentStatus.playoffs ||
+                                        t.status == TournamentStatus.completed,
+                                  )
+                                : DraftCaptainsPhaseView(
+                                    controller: _draftController,
+                                    snapshot: snapshot,
+                                    canManage: canManage,
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -380,45 +394,10 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
   ) {
     return Row(
       children: [
-        // Botão Voltar para o Campeonato
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _onBack,
-            borderRadius: BorderRadius.circular(6),
-            hoverColor: AppColors.primaryNeon.withValues(alpha: 0.12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primaryNeon.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppColors.primaryNeon.withValues(alpha: 0.35),
-                  width: 0.8,
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.arrow_back_rounded,
-                    size: 15,
-                    color: AppColors.primaryNeon,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'VOLTAR AO CAMPEONATO',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // Botão Canônico Unificado de Retorno (AppBackButton)
+        AppBackButton(
+          label: 'VOLTAR AO CAMPEONATO',
+          onPressed: _onBack,
         ),
 
         const SizedBox(width: 14),
@@ -470,53 +449,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Botão Voltar ao Campeonato no topo
+                  // Botão Canônico Unificado de Retorno (AppBackButton)
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _onBack,
-                        borderRadius: BorderRadius.circular(6),
-                        hoverColor:
-                            AppColors.primaryNeon.withValues(alpha: 0.12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                AppColors.primaryNeon.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color:
-                                  AppColors.primaryNeon.withValues(alpha: 0.35),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.arrow_back_rounded,
-                                size: 15,
-                                color: AppColors.primaryNeon,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                'VOLTAR AO CAMPEONATO',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    child: AppBackButton(
+                      label: 'VOLTAR AO CAMPEONATO',
+                      onPressed: _onBack,
                     ),
                   ),
 

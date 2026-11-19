@@ -14,6 +14,7 @@ class AdminTournamentsController extends ChangeNotifier {
   final TextEditingController searchController = TextEditingController();
 
   List<TournamentDto> _tournaments = [];
+  List<TournamentDto> _filteredTournaments = [];
   List<TournamentDto> get tournaments => _tournaments;
 
   bool _isLoading = false;
@@ -33,6 +34,7 @@ class AdminTournamentsController extends ChangeNotifier {
 
   Timer? _debounceTimer;
   bool _isDisposed = false;
+  int _fetchSeq = 0;
 
   AdminTournamentsController() {
     searchController.addListener(_onSearchChanged);
@@ -50,12 +52,15 @@ class AdminTournamentsController extends ChangeNotifier {
     _debounceTimer?.cancel();
     searchController.removeListener(_onSearchChanged);
     searchController.dispose();
+    _tournaments = [];
+    _filteredTournaments = [];
     super.dispose();
   }
 
   void _onSearchChanged() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+      _rebuildFilteredTournaments();
       notifyListeners();
     });
   }
@@ -65,10 +70,12 @@ class AdminTournamentsController extends ChangeNotifier {
       _selectedStatus != null ||
       searchController.text.trim().isNotEmpty;
 
-  /// Retorna os torneios filtrados por texto da busca, inscrição e pelo status selecionado
-  List<TournamentDto> get filteredTournaments {
+  /// Retorna os torneios pré-filtrados em O(1)
+  List<TournamentDto> get filteredTournaments => _filteredTournaments;
+
+  void _rebuildFilteredTournaments() {
     final query = searchController.text.trim().toLowerCase();
-    return _tournaments.where((t) {
+    _filteredTournaments = _tournaments.where((t) {
       if (_selectedRegistrationOpen != null) {
         if (_selectedRegistrationOpen == true && !t.isRegistrationOpen) return false;
         if (_selectedRegistrationOpen == false && !t.isRegistrationClosed) return false;
@@ -87,6 +94,7 @@ class AdminTournamentsController extends ChangeNotifier {
 
   /// Busca a lista de torneios da API
   Future<void> fetchTournaments() async {
+    final int seq = ++_fetchSeq;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -96,6 +104,7 @@ class AdminTournamentsController extends ChangeNotifier {
         status: _selectedStatus?.value.toString(),
       );
       final responseJson = await ApiClient.get(url, requiresAuth: true);
+      if (_isDisposed || seq != _fetchSeq) return;
 
       final rawData = responseJson['data'] ?? responseJson['items'] ?? responseJson;
       final List<dynamic> listData = rawData is List ? rawData : <dynamic>[];
@@ -103,13 +112,18 @@ class AdminTournamentsController extends ChangeNotifier {
       _tournaments = listData
           .map((item) => TournamentDto.fromJson(item as Map<String, dynamic>))
           .toList();
+      _rebuildFilteredTournaments();
     } on ApiException catch (e) {
+      if (_isDisposed || seq != _fetchSeq) return;
       _error = e.message;
-    } catch (e) {
-      _error = 'Não foi possível carregar a lista de campeonatos: $e';
+    } catch (_) {
+      if (_isDisposed || seq != _fetchSeq) return;
+      _error = 'Não foi possível carregar a lista de campeonatos.';
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (!_isDisposed && seq == _fetchSeq) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -117,6 +131,7 @@ class AdminTournamentsController extends ChangeNotifier {
   void setRegistrationFilter(bool? isOpen) {
     if (_selectedRegistrationOpen != isOpen) {
       _selectedRegistrationOpen = isOpen;
+      _rebuildFilteredTournaments();
       notifyListeners();
     }
   }
@@ -125,6 +140,7 @@ class AdminTournamentsController extends ChangeNotifier {
   void setStatusFilter(TournamentStatus? status) {
     if (_selectedStatus != status) {
       _selectedStatus = status;
+      _rebuildFilteredTournaments();
       notifyListeners();
       fetchTournaments();
     }
@@ -132,11 +148,16 @@ class AdminTournamentsController extends ChangeNotifier {
 
   /// Limpa busca e filtros ativos
   void clearFilters() {
+    final hadServerStatusFilter = _selectedStatus != null;
+    _debounceTimer?.cancel();
     searchController.clear();
     _selectedRegistrationOpen = null;
     _selectedStatus = null;
+    _rebuildFilteredTournaments();
     notifyListeners();
-    fetchTournaments();
+    if (hadServerStatusFilter) {
+      fetchTournaments();
+    }
   }
 
   /// Consulta opções de formatos válidas no backend (GET /api/v1/tournaments/options?teamCount=X)

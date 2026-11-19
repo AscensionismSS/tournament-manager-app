@@ -41,6 +41,7 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
   final TournamentWizardState _wizardState = TournamentWizardState();
 
   int _currentStep = 1;
+  bool _isSubmitting = false;
   TournamentConfigurationOptionsDto? _options;
   final Map<int, TournamentConfigurationOptionsDto> _optionsCache = {};
 
@@ -126,6 +127,8 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
   }
 
   Future<void> _onSubmit() async {
+    if (_isSubmitting || widget.controller.isCreating) return;
+
     if (SystemSecurityService.instance.isTournamentCreationLocked) {
       final msg = SystemSecurityService.instance.message;
       AppFeedback.showWarning(
@@ -138,58 +141,69 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
       return;
     }
 
+    setState(() => _isSubmitting = true);
     _wizardState.name = _nameController.text.trim();
 
-    // Se houver banner selecionado localmente e ainda não enviado, faz upload
-    if (_wizardState.bannerBytes != null && _wizardState.bannerUrl == null) {
-      try {
-        final uploadedUrl = await widget.controller.uploadTournamentBanner(
-          _wizardState.bannerBytes!,
-          _wizardState.bannerFileName ?? 'banner.png',
-        );
-        if (uploadedUrl != null) {
-          _wizardState.bannerUrl = uploadedUrl;
+    try {
+      // Se houver banner selecionado localmente e ainda não enviado, faz upload
+      if (_wizardState.bannerBytes != null && _wizardState.bannerUrl == null) {
+        try {
+          final uploadedUrl = await widget.controller.uploadTournamentBanner(
+            _wizardState.bannerBytes!,
+            _wizardState.bannerFileName ?? 'banner.png',
+          );
+          if (uploadedUrl != null) {
+            _wizardState.bannerUrl = uploadedUrl;
+          }
+        } on ApiException catch (e) {
+          if (mounted) {
+            AppFeedback.showError(context, title: 'BANNER INVÁLIDO', message: e.message);
+          }
+          return;
+        } catch (_) {
+          if (mounted) {
+            AppFeedback.showError(
+              context,
+              title: 'ERRO NO UPLOAD',
+              message: 'Não foi possível enviar a imagem do banner.',
+            );
+          }
+          return;
         }
-      } on ApiException catch (e) {
-        if (mounted) {
-          AppFeedback.showError(context, title: 'BANNER INVÁLIDO', message: e.message);
-        }
-        return;
-      } catch (e) {
-        if (mounted) {
-          AppFeedback.showError(context, title: 'ERRO NO UPLOAD', message: 'Falha ao enviar banner: $e');
-        }
-        return;
       }
-    }
 
-    final request = CreateTournamentRequest(
-      name: _wizardState.name,
-      type: _wizardState.numericType,
-      playoffFormat: _wizardState.numericPlayoffFormat,
-      teamCount: _wizardState.teamCount,
-      groupCount: _wizardState.groupCount,
-      groupStageFormat: _wizardState.numericGroupStageFormat,
-      playoffSeriesFormat: _wizardState.numericPlayoffSeriesFormat,
-      grandFinalSeriesFormat: _wizardState.numericGrandFinalSeriesFormat,
-      enableDraftMode: _wizardState.enableDraftMode,
-      bannerUrl: _wizardState.bannerUrl,
-    );
+      final request = CreateTournamentRequest(
+        name: _wizardState.name,
+        type: _wizardState.numericType,
+        playoffFormat: _wizardState.numericPlayoffFormat,
+        teamCount: _wizardState.teamCount,
+        groupCount: _wizardState.groupCount,
+        groupStageFormat: _wizardState.numericGroupStageFormat,
+        playoffSeriesFormat: _wizardState.numericPlayoffSeriesFormat,
+        grandFinalSeriesFormat: _wizardState.numericGrandFinalSeriesFormat,
+        enableDraftMode: _wizardState.enableDraftMode,
+        bannerUrl: _wizardState.bannerUrl,
+      );
 
-    final success = await widget.controller.createTournament(request);
+      final success = await widget.controller.createTournament(request);
 
-    if (mounted) {
-      if (success) {
-        AppFeedback.showSuccess(
-          context,
-          message: 'Campeonato "${_wizardState.name}" criado com sucesso!',
-        );
-        Navigator.of(context).pop(true);
-      } else {
-        AppFeedback.showError(
-          context,
-          message: 'Não foi possível criar o campeonato. Verifique as regras e tente novamente.',
-        );
+      if (mounted) {
+        if (success) {
+          AppFeedback.showSuccess(
+            context,
+            message: 'Campeonato "${_wizardState.name}" criado com sucesso!',
+          );
+          Navigator.of(context).pop(true);
+        } else {
+          AppFeedback.showError(
+            context,
+            message: 'Não foi possível criar o campeonato. Verifique as regras e tente novamente.',
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -209,6 +223,7 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
         title: 'CRIAR NOVO CAMPEONATO',
         icon: Icons.emoji_events_rounded,
         maxWidth: 720,
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -217,43 +232,10 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
             _buildStepperHeader(),
             const SizedBox(height: 14),
 
-            // 2. Conteúdo com Altura Estável e Transição Instantânea sem Reconstrução
-            SizedBox(
-              height: 565,
-              child: SingleChildScrollView(
-                clipBehavior: Clip.none,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
-                child: IndexedStack(
-                  index: _currentStep - 1,
-                  children: [
-                    WizardStepTeams(
-                      controller: widget.controller,
-                      nameController: _nameController,
-                      state: _wizardState,
-                      options: _options,
-                      onTeamCountChanged: (count) {
-                        setState(() => _wizardState.teamCount = count);
-                        _loadOptionsForTeamCount(count);
-                      },
-                      onBannerChanged: () => setState(() {}),
-                    ),
-                    WizardStepFormat(
-                      state: _wizardState,
-                      options: _options,
-                      onChanged: () => setState(() {}),
-                    ),
-                    WizardStepSeries(
-                      state: _wizardState,
-                      options: _options,
-                      onChanged: () => setState(() {}),
-                    ),
-                    WizardStepReview(
-                      state: _wizardState,
-                    ),
-                  ],
-                ),
-              ),
+            // 2. Conteúdo Estável (Travado na altura da maior etapa para evitar saltos entre passos)
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 500),
+              child: _buildCurrentStepContent(),
             ),
 
             const SizedBox(height: 18),
@@ -264,6 +246,41 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
         ),
       ),
     );
+  }
+
+  Widget _buildCurrentStepContent() {
+    switch (_currentStep) {
+      case 1:
+        return WizardStepTeams(
+          controller: widget.controller,
+          nameController: _nameController,
+          state: _wizardState,
+          options: _options,
+          onTeamCountChanged: (count) {
+            setState(() => _wizardState.teamCount = count);
+            _loadOptionsForTeamCount(count);
+          },
+          onBannerChanged: () => setState(() {}),
+        );
+      case 2:
+        return WizardStepFormat(
+          state: _wizardState,
+          options: _options,
+          onChanged: () => setState(() {}),
+        );
+      case 3:
+        return WizardStepSeries(
+          state: _wizardState,
+          options: _options,
+          onChanged: () => setState(() {}),
+        );
+      case 4:
+        return WizardStepReview(
+          state: _wizardState,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildStepperHeader() {
@@ -355,6 +372,7 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
   }
 
   Widget _buildFooterActions() {
+    final bool isBusy = _isSubmitting || widget.controller.isCreating;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -363,7 +381,7 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
             text: 'VOLTAR',
             variant: AppButtonVariant.secondary,
             size: AppButtonSize.medium,
-            onPressed: widget.controller.isCreating ? null : _onPreviousStep,
+            onPressed: isBusy ? null : _onPreviousStep,
           ),
           const SizedBox(width: 10),
         ] else ...[
@@ -371,7 +389,7 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
             text: 'CANCELAR',
             variant: AppButtonVariant.secondary,
             size: AppButtonSize.medium,
-            onPressed: widget.controller.isCreating
+            onPressed: isBusy
                 ? null
                 : () async {
                     final canPop = await _handlePopScope();
@@ -394,8 +412,8 @@ class _CreateTournamentDialogState extends State<CreateTournamentDialog> {
             text: 'CRIAR CAMPEONATO',
             icon: Icons.emoji_events_rounded,
             size: AppButtonSize.medium,
-            isLoading: widget.controller.isCreating,
-            onPressed: widget.controller.isCreating ? null : _onSubmit,
+            isLoading: isBusy,
+            onPressed: isBusy ? null : _onSubmit,
           ),
       ],
     );

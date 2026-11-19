@@ -143,7 +143,7 @@ class InvitationsFilterBar extends StatelessWidget {
         iconWidget: const Icon(
           Icons.done_all_rounded,
           size: 17,
-          color: AppColors.steamBlue,
+          color: AppColors.feedbackSuccess,
         ),
       ),
       AppSelectOption<InvitationFilterTab>(

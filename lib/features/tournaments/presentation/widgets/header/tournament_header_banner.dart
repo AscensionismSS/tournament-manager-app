@@ -34,6 +34,7 @@ class TournamentHeaderBanner extends StatelessWidget {
               if (tournament.hasBanner)
                 Image.network(
                   tournament.resolvedBannerUrl!,
+                  cacheWidth: 1280,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _buildFallbackBanner(),
                 )
@@ -159,13 +160,12 @@ class TournamentHeaderBanner extends StatelessWidget {
   Widget _buildFallbackBanner() {
     return Container(
       color: AppColors.surfaceHighlight,
-      child: Opacity(
-        opacity: 0.1,
-        child: Image.asset(
-          'assets/images/company_logo.jpg',
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        ),
+      child: Image.asset(
+        'assets/images/company_logo.jpg',
+        cacheWidth: 256,
+        opacity: const AlwaysStoppedAnimation(0.1),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
       ),
     );
   }

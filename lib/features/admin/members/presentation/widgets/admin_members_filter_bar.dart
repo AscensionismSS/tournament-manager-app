@@ -124,7 +124,7 @@ class AdminMembersFilterBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
-        final bool isMobile = width < 720;
+        final bool isMobile = width < 780;
 
         if (isMobile) {
           return Column(
@@ -203,66 +203,79 @@ class AdminMembersFilterBar extends StatelessWidget {
               isLoading: controller.isLoadingMembers,
             ),
             const SizedBox(height: 12),
-            // Linha 2: Filtros padronizados a 210px + Botão de Limpeza em 46px + Contador à direita
-            Row(
-              children: [
-                SizedBox(
-                  width: 210,
-                  child: AppSelectBox<String?>(
-                    value: controller.selectedRole,
-                    placeholder: 'Todos os Cargos',
-                    options: roleOptions,
-                    onChanged: controller.setRoleFilter,
-                    height: 46,
-                    accentColor: AppColors.primaryNeon,
-                    showSelectedIcon: true,
-                    isFiltered: isRoleActive,
-                    isHighlighted: isRoleActive,
-                  ),
+            // Linha 2: Filtros padronizados a 210px + Botão de Limpeza em 46px + Contador alinhado à direita
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: width),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 210,
+                          child: AppSelectBox<String?>(
+                            value: controller.selectedRole,
+                            placeholder: 'Todos os Cargos',
+                            options: roleOptions,
+                            onChanged: controller.setRoleFilter,
+                            height: 46,
+                            accentColor: AppColors.primaryNeon,
+                            showSelectedIcon: true,
+                            isFiltered: isRoleActive,
+                            isHighlighted: isRoleActive,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 210,
+                          child: AppSelectBox<bool?>(
+                            value: controller.selectedHasSteam,
+                            placeholder: 'Todas as Contas Steam',
+                            options: steamOptions,
+                            onChanged: controller.setHasSteamFilter,
+                            height: 46,
+                            accentColor: AppColors.primaryNeon,
+                            showSelectedIcon: true,
+                            isFiltered: isSteamActive,
+                            isHighlighted: isSteamActive,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 210,
+                          child: AppSelectBox<bool?>(
+                            value: controller.selectedIsActive,
+                            placeholder: 'Todos os Status de Login',
+                            options: activeOptions,
+                            onChanged: controller.setIsActiveFilter,
+                            height: 46,
+                            accentColor: AppColors.primaryNeon,
+                            showSelectedIcon: true,
+                            isFiltered: isActiveFilterActive,
+                            isHighlighted: isActiveFilterActive,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildClearButton(hasActive),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Text(
+                        '${controller.members.length} ${controller.members.length == 1 ? "membro" : "membros"}',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 210,
-                  child: AppSelectBox<bool?>(
-                    value: controller.selectedHasSteam,
-                    placeholder: 'Todas as Contas Steam',
-                    options: steamOptions,
-                    onChanged: controller.setHasSteamFilter,
-                    height: 46,
-                    accentColor: AppColors.primaryNeon,
-                    showSelectedIcon: true,
-                    isFiltered: isSteamActive,
-                    isHighlighted: isSteamActive,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 210,
-                  child: AppSelectBox<bool?>(
-                    value: controller.selectedIsActive,
-                    placeholder: 'Todos os Status de Login',
-                    options: activeOptions,
-                    onChanged: controller.setIsActiveFilter,
-                    height: 46,
-                    accentColor: AppColors.primaryNeon,
-                    showSelectedIcon: true,
-                    isFiltered: isActiveFilterActive,
-                    isHighlighted: isActiveFilterActive,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _buildClearButton(hasActive),
-                const Spacer(),
-                // Indicador de contagem rápida
-                Text(
-                  '${controller.members.length} ${controller.members.length == 1 ? "membro" : "membros"}',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         );

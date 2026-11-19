@@ -79,7 +79,7 @@ void main() {
     expect(find.text('2/5 TITULARES'), findsOneWidget);
 
     // 2. Capitão (Slot 1)
-    expect(find.text('CAPITÃO'), findsOneWidget);
+    expect(find.byTooltip('Capitão da Equipe'), findsOneWidget);
     expect(find.text('Topson'), findsOneWidget);
 
     // 3. Titular preenchido (Slot 2)

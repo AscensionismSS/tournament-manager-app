@@ -21,9 +21,17 @@ class DraftController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   String? _currentTournamentId;
+  bool _isDisposed = false;
+  int _fetchSeq = 0;
 
   DraftController({DraftStateSnapshotDto? initialSnapshot}) : _snapshot = initialSnapshot {
     _setupSignalRListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
   }
 
   void _setupSignalRListeners() {
@@ -31,45 +39,88 @@ class DraftController extends ChangeNotifier {
     SignalRService.instance.addDraftCompletedListener(_onRealtimeDraftCompleted);
   }
 
-  void _onRealtimeSnapshotReceived(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      try {
-        _snapshot = DraftStateSnapshotDto.fromJson(data);
-        _errorMessage = null;
-        notifyListeners();
-      } catch (e) {
-        if (kDebugMode) debugPrint('Erro ao desserializar snapshot SignalR: $e');
+  @visibleForTesting
+  void handleRealtimeSnapshotForTest(dynamic data) =>
+      _onRealtimeSnapshotReceived(data);
+
+  @visibleForTesting
+  void applyHttpSnapshotForTest(Map<String, dynamic> data) =>
+      _applyAuthoritativeSnapshot(data, allowSessionChange: true);
+
+  bool _applyAuthoritativeSnapshot(
+    dynamic rawData, {
+    bool allowSessionChange = false,
+  }) {
+    if (_isDisposed || rawData is! Map<String, dynamic>) return false;
+    final map = rawData['data'] is Map<String, dynamic>
+        ? rawData['data'] as Map<String, dynamic>
+        : rawData;
+    final incoming = DraftStateSnapshotDto.fromJson(map);
+    if (_snapshot != null) {
+      final sameSession = incoming.draftSessionId.isEmpty ||
+          _snapshot!.draftSessionId.isEmpty ||
+          incoming.draftSessionId == _snapshot!.draftSessionId;
+      if (!sameSession && !allowSessionChange) {
+        return false;
       }
+      if (sameSession && incoming.draftVersion < _snapshot!.draftVersion) {
+        return false;
+      }
+    }
+    _snapshot = incoming;
+    _errorMessage = null;
+    return true;
+  }
+
+  void _onRealtimeSnapshotReceived(dynamic data) {
+    if (_isDisposed || data is! Map<String, dynamic>) return;
+    try {
+      if (_applyAuthoritativeSnapshot(data)) {
+        notifyListeners();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Erro ao desserializar snapshot SignalR: $e');
     }
   }
 
   void _onRealtimeDraftCompleted(dynamic data) {
-    if (_snapshot != null) {
-      _snapshot = DraftStateSnapshotDto(
-        draftSessionId: _snapshot!.draftSessionId,
-        tournamentId: _snapshot!.tournamentId,
-        state: 'Completed',
-        targetTeamCount: _snapshot!.targetTeamCount,
-        currentPickIndex: _snapshot!.currentPickIndex,
-        currentTurnTeamId: _snapshot!.currentTurnTeamId,
-        currentTurnPickOrder: _snapshot!.currentTurnPickOrder,
-        draftVersion: _snapshot!.draftVersion + 1,
-        substitutingPlayerId: _snapshot!.substitutingPlayerId,
-        substitutingTeamId: _snapshot!.substitutingTeamId,
-        playerPool: _snapshot!.playerPool,
-        teams: _snapshot!.teams,
-        minRequiredPlayers: _snapshot!.minRequiredPlayers,
-        canStartDraft: _snapshot!.canStartDraft,
-        allCaptainsAssigned: _snapshot!.allCaptainsAssigned,
-        allStartersPicked: true,
-        totalStarterPicks: _snapshot!.totalStarterPicks,
-      );
-      notifyListeners();
+    if (_isDisposed || _snapshot == null) return;
+    if (data is Map<String, dynamic>) {
+      final sessionId = data['draftSessionId']?.toString();
+      if (sessionId != null &&
+          sessionId.isNotEmpty &&
+          _snapshot!.draftSessionId.isNotEmpty &&
+          sessionId != _snapshot!.draftSessionId) {
+        return;
+      }
     }
+    _snapshot = DraftStateSnapshotDto(
+      draftSessionId: _snapshot!.draftSessionId,
+      tournamentId: _snapshot!.tournamentId,
+      state: 'Completed',
+      targetTeamCount: _snapshot!.targetTeamCount,
+      currentPickIndex: _snapshot!.currentPickIndex,
+      currentTurnTeamId: _snapshot!.currentTurnTeamId,
+      currentTurnPickOrder: _snapshot!.currentTurnPickOrder,
+      draftVersion: _snapshot!.draftVersion + 1,
+      substitutingPlayerId: _snapshot!.substitutingPlayerId,
+      substitutingTeamId: _snapshot!.substitutingTeamId,
+      playerPool: _snapshot!.playerPool,
+      teams: _snapshot!.teams,
+      minRequiredPlayers: _snapshot!.minRequiredPlayers,
+      canStartDraft: _snapshot!.canStartDraft,
+      allCaptainsAssigned: _snapshot!.allCaptainsAssigned,
+      allStartersPicked: true,
+      totalStarterPicks: _snapshot!.totalStarterPicks,
+    );
+    notifyListeners();
   }
 
   /// Busca os dados mais recentes do snapshot via REST
   Future<bool> fetchSnapshot(String draftSessionId, {bool silent = false}) async {
+    if (_isDisposed) return false;
+    final int seq = ++_fetchSeq;
+
     if (!silent) {
       _isLoading = true;
       _errorMessage = null;
@@ -81,28 +132,39 @@ class DraftController extends ChangeNotifier {
         ApiEndpoints.draftSnapshot(draftSessionId),
         requiresAuth: true,
       );
+      if (_isDisposed || seq != _fetchSeq) return false;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
-      _errorMessage = null;
+      _applyAuthoritativeSnapshot(response, allowSessionChange: true);
 
-      // Entra no canal SignalR do torneio correspondente
-      if (_snapshot != null && _currentTournamentId != _snapshot!.tournamentId) {
-        if (_currentTournamentId != null) {
-          await SignalRService.instance.leaveTournamentDraft(_currentTournamentId!);
+      // Entra no canal SignalR do torneio correspondente apenas se ainda montado
+      if (!_isDisposed &&
+          _snapshot != null &&
+          _snapshot!.tournamentId.isNotEmpty &&
+          _currentTournamentId != _snapshot!.tournamentId) {
+        final previousId = _currentTournamentId;
+        final nextId = _snapshot!.tournamentId;
+        _currentTournamentId = nextId;
+        if (previousId != null) {
+          await SignalRService.instance.leaveTournamentDraft(previousId);
         }
-        _currentTournamentId = _snapshot!.tournamentId;
-        await SignalRService.instance.joinTournamentDraft(_currentTournamentId!);
+        if (_isDisposed) {
+          await SignalRService.instance.leaveTournamentDraft(nextId);
+          return false;
+        }
+        await SignalRService.instance.joinTournamentDraft(nextId);
       }
 
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      if (!_isDisposed && seq == _fetchSeq) _errorMessage = e.message;
       return false;
-    } catch (e) {
-      _errorMessage = 'Falha ao carregar estado do draft: $e';
+    } catch (_) {
+      if (!_isDisposed && seq == _fetchSeq) {
+        _errorMessage = 'Falha ao carregar estado do draft.';
+      }
       return false;
     } finally {
-      if (!silent) {
+      if (!silent && !_isDisposed && seq == _fetchSeq) {
         _isLoading = false;
         notifyListeners();
       }
@@ -130,15 +192,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao selecionar capitão: $e';
+    } catch (_) {
+      const msg = 'Erro ao selecionar capitão.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -146,8 +209,6 @@ class DraftController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
 
   /// Remove o Capitão de uma equipe e o retorna para a pool (Fase 1: DELETE .../captain/{teamId})
   Future<String?> removeCaptain({
@@ -168,15 +229,16 @@ class DraftController extends ChangeNotifier {
         ),
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao remover capitão: $e';
+    } catch (_) {
+      const msg = 'Erro ao remover capitão.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -185,15 +247,13 @@ class DraftController extends ChangeNotifier {
     }
   }
 
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
-
   /// Substitui o capitão de uma equipe: remove o anterior (retornando ao pool) e atribui o novo
   Future<String?> replaceCaptain({
     required String teamId,
     required String newPlayerId,
   }) async {
     final removeError = await removeCaptain(teamId: teamId);
-    if (removeError != null) return removeError;
+    if (removeError != null || _isDisposed) return removeError;
     return selectCaptain(playerId: newPlayerId, teamId: teamId);
   }
 
@@ -211,15 +271,16 @@ class DraftController extends ChangeNotifier {
         body: {'expectedVersion': _snapshot!.draftVersion},
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao avançar para definição de ordem: $e';
+    } catch (_) {
+      const msg = 'Erro ao avançar para definição de ordem.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -227,8 +288,6 @@ class DraftController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
 
   /// Finaliza a ordem de escolha das equipes no Snake Draft (POST .../finalize-order)
   /// [orderType]: 1 = Manual (Como foi no Draft de Pick), 2 = Randomized (Sorteio Aleatório)
@@ -257,15 +316,16 @@ class DraftController extends ChangeNotifier {
         body: body,
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao definir ordem do draft: $e';
+    } catch (_) {
+      const msg = 'Erro ao definir ordem do draft.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -273,8 +333,6 @@ class DraftController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
 
   /// Avança para a fase de alocação de reservas (POST .../advance-to-substitutes)
   Future<String?> advanceToSubstitutes() async {
@@ -290,15 +348,16 @@ class DraftController extends ChangeNotifier {
         body: {'expectedVersion': _snapshot!.draftVersion},
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao avançar para reservas: $e';
+    } catch (_) {
+      const msg = 'Erro ao avançar para reservas.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -306,8 +365,6 @@ class DraftController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
 
   /// Conclui o draft diretamente consolidando as equipes (POST .../complete)
   /// e inicia o campeonato gerando chaves/partidas (POST .../tournaments/{id}/start)
@@ -326,7 +383,9 @@ class DraftController extends ChangeNotifier {
         requiresAuth: true,
       );
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      if (!_isDisposed) {
+        _applyAuthoritativeSnapshot(response);
+      }
 
       // Inicia o campeonato e gera as chaves/partidas se solicitado e se houver torneio vinculado
       if (startTournament && tournamentId.isNotEmpty) {
@@ -351,8 +410,8 @@ class DraftController extends ChangeNotifier {
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao concluir o draft: $e';
+    } catch (_) {
+      const msg = 'Erro ao concluir o draft.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -360,8 +419,6 @@ class DraftController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
 
   /// Cadastra um jogador tardio diretamente no pool do draft (POST .../late-players)
   Future<String?> addLatePlayer({
@@ -391,15 +448,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao cadastrar jogador tardio: $e';
+    } catch (_) {
+      const msg = 'Erro ao cadastrar jogador tardio.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -407,8 +465,6 @@ class DraftController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /// Remove um jogador reserva de uma equipe (DELETE .../teams/{teamId}/reserves/{playerId})
 
   /// Aloca um reserva diretamente para a equipe (limite de 2 reservas por equipe)
   Future<String?> allocateReserve({
@@ -431,15 +487,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao alocar reserva: $e';
+    } catch (_) {
+      const msg = 'Erro ao alocar reserva.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -469,15 +526,16 @@ class DraftController extends ChangeNotifier {
         ),
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao remover reserva: $e';
+    } catch (_) {
+      const msg = 'Erro ao remover reserva.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -515,15 +573,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao realizar pick: $e';
+    } catch (_) {
+      const msg = 'Erro ao realizar pick.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -553,15 +612,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao iniciar substituição: $e';
+    } catch (_) {
+      const msg = 'Erro ao iniciar substituição.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -589,15 +649,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao confirmar substituição: $e';
+    } catch (_) {
+      const msg = 'Erro ao confirmar substituição.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -622,15 +683,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao cancelar substituição: $e';
+    } catch (_) {
+      const msg = 'Erro ao cancelar substituição.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -660,15 +722,16 @@ class DraftController extends ChangeNotifier {
         },
         requiresAuth: true,
       );
+      if (_isDisposed) return null;
 
-      _snapshot = DraftStateSnapshotDto.fromJson(response);
+      _applyAuthoritativeSnapshot(response);
       notifyListeners();
       return null;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return e.message;
-    } catch (e) {
-      final msg = 'Erro ao renomear equipe: $e';
+    } catch (_) {
+      const msg = 'Erro ao renomear equipe.';
       _errorMessage = msg;
       return msg;
     } finally {
@@ -679,6 +742,7 @@ class DraftController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     SignalRService.instance.removeDraftSnapshotListener(_onRealtimeSnapshotReceived);
     SignalRService.instance.removeDraftCompletedListener(_onRealtimeDraftCompleted);
     if (_currentTournamentId != null) {

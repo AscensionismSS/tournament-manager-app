@@ -92,6 +92,7 @@ class SteamLinkedCard extends StatelessWidget {
                     child: hasAvatar
                         ? Image.network(
                             avatarUrl,
+                            cacheWidth: 96,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 const Icon(

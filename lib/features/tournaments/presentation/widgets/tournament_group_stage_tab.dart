@@ -83,17 +83,35 @@ class TournamentGroupStageTab extends StatelessWidget {
         )
         .toList();
 
-    return AppCard(
-      padding: EdgeInsets.zero,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.80),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           // Cabeçalho da Tabela
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceHighlight.withValues(alpha: 0.7),
-              border: const Border(
-                bottom: BorderSide(color: AppColors.border, width: 1),
+              color: AppColors.surfaceHighlight,
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.border.withValues(alpha: 0.80),
+                  width: 1.0,
+                ),
               ),
             ),
             child: const Row(
@@ -119,159 +137,191 @@ class TournamentGroupStageTab extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: group.rows.length,
             separatorBuilder: (_, __) => Divider(
-                color: AppColors.border.withValues(alpha: 0.6), height: 1),
+              color: AppColors.border.withValues(alpha: 0.35),
+              height: 1,
+            ),
             itemBuilder: (context, index) {
               final row = group.rows[index];
               final destination = destinations[index];
-              return _buildStandingRow(context, row, destination);
+              return _StandingRowItem(
+                row: row,
+                destination: destination,
+              );
             },
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildStandingRow(
-    BuildContext context,
-    TeamStandingDto row,
-    GroupSeedDestination dest,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: dest.color, width: 3.5),
+class _StandingRowItem extends StatefulWidget {
+  final TeamStandingDto row;
+  final GroupSeedDestination destination;
+
+  const _StandingRowItem({
+    required this.row,
+    required this.destination,
+  });
+
+  @override
+  State<_StandingRowItem> createState() => _StandingRowItemState();
+}
+
+class _StandingRowItemState extends State<_StandingRowItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final row = widget.row;
+    final dest = widget.destination;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? AppColors.surfaceHighlight.withValues(alpha: 0.35)
+              : Colors.transparent,
+          border: Border(
+            left: BorderSide(color: dest.color, width: 3.5),
+          ),
         ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      child: Row(
-        children: [
-          // Posição (#) com tag da Chave integrada (ex: 1º UB, 5º LB, 6º PI) + Tooltip explicativo
-          Tooltip(
-            message: dest.detailHint,
-            child: SizedBox(
-              width: 76,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${row.rank}º',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w900,
-                      color: dest.color,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: dest.color.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: dest.color.withValues(alpha: 0.5),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Text(
-                      dest.codeTag,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // Posição (#) com tag da Chave integrada (ex: 1º UB, 5º LB, 6º PI) + Tooltip explicativo
+            Tooltip(
+              message: dest.detailHint,
+              child: SizedBox(
+                width: 76,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${row.rank}º',
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w900,
                         color: dest.color,
-                        letterSpacing: 0.4,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: dest.color.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: dest.color.withValues(alpha: 0.5),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        dest.codeTag,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: dest.color,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Nome da Equipe (limpo, sem ícones/escudos intrusivos)
-          Expanded(
-            child: Text(
-              row.teamName,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight:
-                    row.isPlaceholder ? FontWeight.w600 : FontWeight.w800,
-                color: row.isPlaceholder
-                    ? AppColors.textSecondary
-                    : Colors.white,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          // Pontos
-          SizedBox(
-            width: 60,
-            child: Text(
-              '${row.points}',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                color: AppColors.dotaGoldLight,
+            // Nome da Equipe (limpo, sem ícones/escudos intrusivos)
+            Expanded(
+              child: Text(
+                row.teamName,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight:
+                      row.isPlaceholder ? FontWeight.w600 : FontWeight.w800,
+                  color: row.isPlaceholder
+                      ? AppColors.textSecondary
+                      : Colors.white,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
 
-          // Jogos Disputados
-          SizedBox(
-            width: 48,
-            child: Text(
-              '${row.playedMatches}',
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 12.5, color: Colors.white),
-            ),
-          ),
-
-          // V-E-D
-          SizedBox(
-            width: 74,
-            child: Text(
-              row.recordSummary,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+            // Pontos
+            SizedBox(
+              width: 60,
+              child: Text(
+                '${row.points}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.dotaGoldLight,
+                ),
               ),
             ),
-          ),
 
-          // Mapas (W-L)
-          SizedBox(
-            width: 72,
-            child: Text(
-              row.mapsSummary,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 12.5, color: AppColors.textSecondary),
-            ),
-          ),
-
-          // Saldo de Mapas
-          SizedBox(
-            width: 62,
-            child: Text(
-              row.mapDiffLabel,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: row.mapDifferential > 0
-                    ? AppColors.feedbackSuccess
-                    : (row.mapDifferential < 0
-                        ? AppColors.feedbackError
-                        : AppColors.textSecondary),
+            // Jogos Disputados
+            SizedBox(
+              width: 48,
+              child: Text(
+                '${row.playedMatches}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 12.5, color: Colors.white),
               ),
             ),
-          ),
-        ],
+
+            // V-E-D
+            SizedBox(
+              width: 74,
+              child: Text(
+                row.recordSummary,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+
+            // Mapas (W-L)
+            SizedBox(
+              width: 72,
+              child: Text(
+                row.mapsSummary,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+
+            // Saldo de Mapas
+            SizedBox(
+              width: 62,
+              child: Text(
+                row.mapDiffLabel,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: row.mapDifferential > 0
+                      ? AppColors.feedbackSuccess
+                      : (row.mapDifferential < 0
+                          ? AppColors.feedbackError
+                          : AppColors.textSecondary),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -289,9 +339,10 @@ class _HeaderCell extends StatelessWidget {
       text,
       textAlign: alignRight ? TextAlign.right : TextAlign.left,
       style: const TextStyle(
-        fontSize: 10.5,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.7,
+        fontFamily: 'Oswald',
+        fontSize: 12.0,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
         color: AppColors.textSecondary,
       ),
     );

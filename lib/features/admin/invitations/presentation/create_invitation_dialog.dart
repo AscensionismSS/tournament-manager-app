@@ -417,10 +417,13 @@ class _CreateInvitationDialogState extends State<CreateInvitationDialog> {
     );
   }
 
+  static final RegExp _emailRegex =
+      RegExp(r'^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$');
+
   String? _validateEmail(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Informe o e-mail do convidado.';
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(text)) {
+    if (!_emailRegex.hasMatch(text)) {
       return 'Informe um e-mail válido.';
     }
     return null;

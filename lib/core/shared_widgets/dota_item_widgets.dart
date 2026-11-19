@@ -70,6 +70,7 @@ class DotaHeroPlayerCell extends StatelessWidget {
                       heroAsset,
                       width: 54,
                       height: 30,
+                      cacheWidth: 108,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const _FallbackHeroBox(),
                     )
@@ -161,6 +162,7 @@ class DotaItemSlot extends StatelessWidget {
         child: hasItem
             ? Image.asset(
                 assetPath,
+                cacheWidth: 80,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
                     const _ItemPlaceholder(isCircle: false),
@@ -273,6 +275,7 @@ class DotaNeutralTierBadge extends StatelessWidget {
               child: hasNeutral
                   ? Image.asset(
                       neutralAsset,
+                      cacheWidth: 64,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) =>
                           const _ItemPlaceholder(isCircle: true),
@@ -313,6 +316,7 @@ class DotaNeutralTierBadge extends StatelessWidget {
                 child: hasBuff
                     ? Image.asset(
                         buffAsset,
+                        cacheWidth: 40,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
                             const _ItemPlaceholder(isCircle: true),
@@ -370,17 +374,16 @@ class DotaAghanimSlot extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.all(3.5),
-          child: Opacity(
-            opacity: isActive ? 1.0 : 0.25,
-            child: Image.asset(
-              assetPath,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 13,
-                  color: isActive ? activeColor : AppColors.textSecondary,
-                ),
+          child: Image.asset(
+            assetPath,
+            cacheWidth: 56,
+            opacity: AlwaysStoppedAnimation(isActive ? 1.0 : 0.25),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Center(
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                size: 13,
+                color: isActive ? activeColor : AppColors.textSecondary,
               ),
             ),
           ),
@@ -430,6 +433,7 @@ class DotaObjectiveBadges extends StatelessWidget {
                     DotaItemHelper.roshanAsset,
                     width: 20,
                     height: 20,
+                    cacheWidth: 48,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Icon(
                       Icons.whatshot_rounded,
@@ -487,6 +491,7 @@ class DotaObjectiveBadges extends StatelessWidget {
                           borderRadius: BorderRadius.circular(3),
                           child: Image.asset(
                             DotaItemHelper.aegisAsset,
+                            cacheWidth: 48,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Icon(
                               Icons.shield_rounded,

@@ -376,10 +376,15 @@ class _AddLatePlayerDialogState extends State<AddLatePlayerDialog> {
                 hintText: 'Digite o nick completo com mesmos caracteres...',
                 prefixIcon: Icons.search_rounded,
                 suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        color: AppColors.textSecondary,
-                        onPressed: _onClearPreview,
+                    ? Center(
+                        widthFactor: 1,
+                        child: AppIconButton(
+                          icon: Icons.clear_rounded,
+                          size: AppIconButtonSize.small,
+                          variant: AppIconButtonVariant.ghost,
+                          tooltip: 'Limpar busca',
+                          onPressed: _onClearPreview,
+                        ),
                       )
                     : null,
                 onChanged: _onSearchChanged,

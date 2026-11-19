@@ -3,10 +3,6 @@ import '../theme/theme.dart';
 import '../utils/dota_rank_helper.dart';
 
 /// Componente que renderiza a medalha oficial de rank do Dota 2.
-///
-/// Arquitetura Híbrida:
-/// 1. Prioridade Máxima: Carrega localmente dos assets do app (`assets/images/ranks/`) com 0ms de latência.
-/// 2. Fallback de Segurança: Se algum asset local faltar, busca diretamente da CDN da OpenDota.
 class DotaRankMedal extends StatelessWidget {
   final String rankTier;
   final int rankStars;
@@ -32,8 +28,9 @@ class DotaRankMedal extends StatelessWidget {
   int get effectiveRankStars => DotaRankHelper.parseRankStars(rankTier, rankStars);
 
   /// Retorna o nome do arquivo PNG base da medalha
-  String get baseMedalFileName {
-    final tier = tierNumber;
+  String get baseMedalFileName => _resolveBaseMedalFileName(tierNumber);
+
+  String _resolveBaseMedalFileName(int tier) {
     if (tier == 0) return 'rank_icon_0.png';
 
     if (tier == 8) {
@@ -48,9 +45,10 @@ class DotaRankMedal extends StatelessWidget {
   }
 
   /// Retorna o nome do arquivo PNG da estrela sobreposta (1 a 5)
-  String? get starOverlayFileName {
-    final tier = tierNumber;
-    final stars = effectiveRankStars;
+  String? get starOverlayFileName =>
+      _resolveStarOverlayFileName(tierNumber, effectiveRankStars);
+
+  String? _resolveStarOverlayFileName(int tier, int stars) {
     if (tier >= 1 && tier <= 7 && stars >= 1 && stars <= 5) {
       return 'rank_star_$stars.png';
     }
@@ -58,29 +56,35 @@ class DotaRankMedal extends StatelessWidget {
   }
 
   /// Constrói a imagem carregando diretamente da CDN oficial da OpenDota
-  /// com fallback gracioso para o ícone temático de patente caso haja falha de rede.
-  Widget _buildLayerImage(String fileName) {
+  /// com redimensionamento na decodificação GPU e fallback gracioso.
+  Widget _buildLayerImage(String fileName, int tier, int targetCacheSize) {
     return Image.network(
       '$_cdnBase/$fileName',
       width: size,
       height: size,
+      cacheWidth: targetCacheSize,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
       errorBuilder: (context, error, stackTrace) => Icon(
         Icons.military_tech_rounded,
         size: size * 0.75,
-        color: tierNumber == 8 ? AppColors.dotaGold : AppColors.textSecondary,
+        color: tier == 8 ? AppColors.dotaGold : AppColors.textSecondary,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final starFileName = starOverlayFileName;
-    final isRankedImmortal = tierNumber == 8 && leaderboardRank != null && leaderboardRank! > 0;
+    final int tier = tierNumber;
+    final int stars = effectiveRankStars;
+    final int targetCacheSize = (size * 2).round().clamp(32, 128);
+    final String baseFileName = _resolveBaseMedalFileName(tier);
+    final String? starFileName = _resolveStarOverlayFileName(tier, stars);
+    final bool isRankedImmortal =
+        tier == 8 && leaderboardRank != null && leaderboardRank! > 0;
 
     return Tooltip(
-      message: _buildTooltipMessage(),
+      message: _buildTooltipMessage(tier),
       child: SizedBox(
         width: size,
         height: size,
@@ -89,11 +93,11 @@ class DotaRankMedal extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             // 1. Camada Base: Medalha do Tier
-            _buildLayerImage(baseMedalFileName),
+            _buildLayerImage(baseFileName, tier, targetCacheSize),
 
             // 2. Camada Superior: Estrelas sobrepostas (Divino 1 a 5, etc)
             if (starFileName != null)
-              _buildLayerImage(starFileName),
+              _buildLayerImage(starFileName, tier, targetCacheSize),
 
             // 3. Camada do Placar de Imortal (Plaqueta oficial na base da medalha)
             if (isRankedImmortal && showBadgeNumber)
@@ -126,8 +130,7 @@ class DotaRankMedal extends StatelessWidget {
     );
   }
 
-  String _buildTooltipMessage() {
-    final tier = tierNumber;
+  String _buildTooltipMessage(int tier) {
     if (tier == 0) return 'Dota 2: Sem Rank Calibrado';
     if (tier == 8) {
       if (leaderboardRank != null && leaderboardRank! > 0) {

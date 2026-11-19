@@ -187,6 +187,11 @@ class AppButton extends StatelessWidget {
     );
   }
 
+  static final TextStyle _buttonOswaldBase = GoogleFonts.oswald(
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.2,
+  );
+
   @override
   Widget build(BuildContext context) {
     final isEnabled = onPressed != null && !isLoading;
@@ -200,10 +205,8 @@ class AppButton extends StatelessWidget {
     final Widget textWidget = Text(
       text.toUpperCase(),
       textAlign: TextAlign.center,
-      style: GoogleFonts.oswald(
+      style: _buttonOswaldBase.copyWith(
         fontSize: size.fontSize,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
         color: resolvedFg,
       ),
       maxLines: 1,

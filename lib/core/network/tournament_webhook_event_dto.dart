@@ -35,6 +35,15 @@ class TournamentWebhookEventDto {
   String get dedupKey =>
       '$tournamentId:$version:$eventType:${matchSeriesId ?? ""}:${slotCode ?? ""}';
 
+  /// Indica se a notificação pertence a um campeonato real navegável (exclui eventos globais de sistema)
+  bool get hasValidTournamentTarget {
+    final trimmed = tournamentId.trim();
+    if (trimmed.isEmpty || trimmed == '00000000-0000-0000-0000-000000000000') {
+      return false;
+    }
+    return eventType != 'SecuritySettingsUpdated';
+  }
+
   /// Horário relativo amigável pronto para exibição no Sininho (Dumb UI)
   String get formattedTime =>
       AppDateFormatter.formatRelative(timestampUtc, placeholder: 'Agora');

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/navigation/app_mode.dart';
 import '../../../core/network/tournament_events_service.dart';
 import '../../../core/network/tournament_webhook_event_dto.dart';
+import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/theme.dart';
 
 /// Menu Suspenso do Sininho de Notificações em Tempo Real (SSE Global).
@@ -35,12 +37,15 @@ class NotificationBellMenu extends StatelessWidget {
           ),
           onOpened: service.markAllAsRead,
           onSelected: (value) {
-            if (value == '__clear__') {
-              service.clearAll();
+            if (value == '__clear__' || value == '__noop__') {
+              if (value == '__clear__') service.clearAll();
               return;
             }
             if (value.isNotEmpty) {
-              context.go('/tournaments/$value/overview');
+              final canManage =
+                  TokenStorage.profileNotifier.value?.canManageTournaments ?? false;
+              final query = (AppModeState.isAdmin && canManage) ? '?from=admin' : '';
+              context.go('/tournaments/$value/overview$query');
             }
           },
           itemBuilder: (context) => [
@@ -144,7 +149,10 @@ class NotificationBellMenu extends StatelessWidget {
             else
               ...items.take(10).map(
                     (evt) => PopupMenuItem<String>(
-                      value: evt.tournamentId,
+                      enabled: evt.hasValidTournamentTarget,
+                      value: evt.hasValidTournamentTarget
+                          ? evt.tournamentId
+                          : '__noop__',
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 8,

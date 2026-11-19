@@ -32,20 +32,20 @@ class _TournamentNavTabItemState extends State<TournamentNavTabItem> {
     final Color textColor;
 
     if (isSelected) {
-      bgColor = AppColors.primary.withValues(alpha: 0.18);
-      borderColor = AppColors.primaryNeon;
+      bgColor = AppColors.primaryNeon.withValues(alpha: 0.12);
+      borderColor = AppColors.primaryNeon.withValues(alpha: 0.85);
       iconColor = AppColors.primaryNeon;
       textColor = Colors.white;
     } else if (_isHovered) {
-      bgColor = Colors.white.withValues(alpha: 0.05);
-      borderColor = AppColors.borderHighlight.withValues(alpha: 0.5);
+      bgColor = AppColors.surfaceHighlight.withValues(alpha: 0.45);
+      borderColor = AppColors.border.withValues(alpha: 0.85);
       iconColor = Colors.white;
       textColor = Colors.white;
     } else {
       bgColor = Colors.transparent;
       borderColor = Colors.transparent;
-      iconColor = AppColors.textSecondary;
-      textColor = AppColors.textSecondary;
+      iconColor = AppColors.textSecondary.withValues(alpha: 0.75);
+      textColor = AppColors.textSecondary.withValues(alpha: 0.80);
     }
 
     return MouseRegion(
@@ -58,14 +58,23 @@ class _TournamentNavTabItemState extends State<TournamentNavTabItem> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: borderColor,
               width: 1.0,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primaryNeon.withValues(alpha: 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

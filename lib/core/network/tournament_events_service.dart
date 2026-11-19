@@ -135,6 +135,7 @@ class TournamentEventsService {
 
   /// Limpa o histórico em memória do Sininho
   void clearAll() {
+    _recentDedupKeys.clear();
     notifications.value = [];
     unreadCount.value = 0;
   }

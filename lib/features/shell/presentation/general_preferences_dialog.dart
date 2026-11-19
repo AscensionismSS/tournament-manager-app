@@ -122,11 +122,10 @@ class _GeneralPreferencesDialogState extends State<GeneralPreferencesDialog> {
       title: 'PREFERÊNCIAS GERAIS',
       maxWidth: 440,
       onClose: () => Navigator.of(context).pop(),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
             // 1. Caixa de Informação Estruturada (Callout)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -266,7 +265,6 @@ class _GeneralPreferencesDialogState extends State<GeneralPreferencesDialog> {
             const SizedBox(height: 8),
           ],
         ),
-      ),
       actions: [
         AppCancelButton(
           height: 44,

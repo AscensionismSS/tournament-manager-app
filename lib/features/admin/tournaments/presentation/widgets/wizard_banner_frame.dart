@@ -22,7 +22,7 @@ class WizardBannerFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double bannerHeight = 132.0;
+    const double bannerHeight = 122.0;
     final bool hasCustomBanner = state.bannerBytes != null;
 
     return Container(
@@ -324,7 +324,7 @@ class WizardBannerFrame extends StatelessWidget {
                 if (hasCustomBanner && !isUploadingBanner) ...[
                   const SizedBox(width: 6),
                   AppButton(
-                    text: 'RESTAURAR PADRÃO',
+                    text: 'RESTAURAR',
                     icon: Icons.restart_alt_rounded,
                     size: AppButtonSize.small,
                     variant: AppButtonVariant.ghost,
@@ -337,28 +337,48 @@ class WizardBannerFrame extends StatelessWidget {
 
           const SizedBox(height: 6),
 
-          // 3. Dica Oficial de Upload & Resolução
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 2),
+          // 3. Especificação Oficial de Resolução & Dimensões
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: EdgeInsets.only(top: 1.5),
-                  child: Icon(
-                    Icons.info_outline_rounded,
-                    size: 12.5,
-                    color: AppColors.textSecondary,
-                  ),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 13,
+                  color: AppColors.dotaGold,
                 ),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    'Formatos aceitos: PNG, JPG ou WEBP (até 5MB). Resolução recomendada: 1920x1080 (16:9) ou 1920x600 (Mínimo: 960x300).',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textSecondary,
-                      height: 1.25,
+                  child: RichText(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    text: const TextSpan(
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.textSecondary,
+                      ),
+                      children: [
+                        TextSpan(text: 'Dimensões ideais da moldura: '),
+                        TextSpan(
+                          text: '1920×360 px',
+                          style: TextStyle(
+                            color: AppColors.dotaGoldLight,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(text: ' ou '),
+                        TextSpan(
+                          text: '1600×300 px',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              ' (proporção panorâmica 16:3) • PNG, JPG ou WEBP (máx. 5MB)',
+                        ),
+                      ],
                     ),
                   ),
                 ),

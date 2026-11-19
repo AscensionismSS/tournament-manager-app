@@ -102,8 +102,7 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final horizontalPadding = screenWidth < 600 ? 16.0 : 24.0;
+    final horizontalPadding = AppPageLayout.horizontalPadding(context);
 
     return ValueListenableBuilder<LoginResponse?>(
       valueListenable: TokenStorage.profileNotifier,
@@ -153,7 +152,7 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
                   ),
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1680),
+                      constraints: const BoxConstraints(maxWidth: AppPageLayout.maxContentWidth),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

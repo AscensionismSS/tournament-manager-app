@@ -38,7 +38,7 @@ class AppSearchBar extends StatefulWidget {
 }
 
 class _AppSearchBarState extends State<AppSearchBar> {
-  late final TextEditingController _controller;
+  late TextEditingController _controller;
   bool _ownsController = false;
   Timer? _debounceTimer;
   String _lastSearchTerm = '';
@@ -47,14 +47,49 @@ class _AppSearchBarState extends State<AppSearchBar> {
   @override
   void initState() {
     super.initState();
-    if (widget.controller != null) {
-      _controller = widget.controller!;
+    _bindController(widget.controller);
+  }
+
+  void _bindController(TextEditingController? externalController) {
+    if (externalController != null) {
+      _controller = externalController;
+      _ownsController = false;
     } else {
       _controller = TextEditingController();
       _ownsController = true;
     }
     _hasText = _controller.text.isNotEmpty;
     _lastSearchTerm = _controller.text.trim();
+    _controller.addListener(_onControllerExternalSync);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _debounceTimer?.cancel();
+      _controller.removeListener(_onControllerExternalSync);
+      if (_ownsController) {
+        _controller.dispose();
+      }
+      _bindController(widget.controller);
+    }
+  }
+
+  void _onControllerExternalSync() {
+    if (!mounted) return;
+    final hasTextNow = _controller.text.isNotEmpty;
+    if (!hasTextNow) {
+      // Cancela qualquer debounce pendente para evitar que uma busca antiga dispare
+      // atrasada depois que o usuário clicou em "Limpar Filtros" externamente.
+      _debounceTimer?.cancel();
+      _lastSearchTerm = '';
+    }
+    if (_hasText != hasTextNow) {
+      setState(() {
+        _hasText = hasTextNow;
+      });
+    }
   }
 
   void _onChanged(String query) {
@@ -67,7 +102,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
 
     _debounceTimer?.cancel();
     if (widget.debounceDuration == Duration.zero) {
-      final trimmed = query.trim();
+      final trimmed = _controller.text.trim();
       if (trimmed != _lastSearchTerm) {
         _lastSearchTerm = trimmed;
         widget.onSearch(trimmed);
@@ -77,7 +112,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
 
     _debounceTimer = Timer(widget.debounceDuration, () {
       if (!mounted) return;
-      final trimmed = query.trim();
+      final trimmed = _controller.text.trim();
       // Prevenção de buscas repetidas redundantes
       if (trimmed != _lastSearchTerm) {
         _lastSearchTerm = trimmed;
@@ -100,6 +135,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _controller.removeListener(_onControllerExternalSync);
     if (_ownsController) {
       _controller.dispose();
     }

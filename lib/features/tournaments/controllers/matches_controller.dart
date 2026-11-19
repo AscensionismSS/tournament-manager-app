@@ -21,6 +21,20 @@ class MatchesController extends ChangeNotifier {
   int? _expandedGameDetailsNumber;
   int? get expandedGameDetailsNumber => _expandedGameDetailsNumber;
 
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
   String? get _resultLockError {
     if (SystemSecurityService.instance.isResultSubmissionLocked) {
       final msg = SystemSecurityService.instance.message;

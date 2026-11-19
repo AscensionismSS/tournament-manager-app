@@ -35,6 +35,13 @@ class RegisterInviteController extends ChangeNotifier {
   // Estados de Submissão de Cadastro
   bool isSubmitting = false;
   String? submitError;
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
 
   RegisterInviteController({required this.code}) {
     validateCode();
@@ -216,6 +223,7 @@ class RegisterInviteController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     emailController.dispose();
     displayNameController.dispose();
     passwordController.dispose();
