@@ -9,6 +9,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_invite_screen.dart';
 import '../../features/draft/presentation/draft_room_screen.dart';
 import '../../features/members/presentation/members_screen.dart';
+import '../../features/pro_matches/presentation/pro_matches_screen.dart';
 import '../../features/shell/presentation/main_shell.dart';
 import '../../features/tournaments/controllers/tournament_details_controller.dart';
 import '../../features/tournaments/presentation/tournament_details_screen.dart';
@@ -136,6 +137,14 @@ class AppRouter {
             pageBuilder: (context, state) => _buildSubtleFadePage(
               key: state.pageKey,
               child: const TournamentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/pro-matches',
+            name: 'pro_matches',
+            pageBuilder: (context, state) => _buildSubtleFadePage(
+              key: state.pageKey,
+              child: const ProMatchesScreen(),
             ),
           ),
           GoRoute(

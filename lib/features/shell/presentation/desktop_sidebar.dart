@@ -33,7 +33,7 @@ class DesktopSidebar extends StatelessWidget {
     this.onNavigate,
   });
 
-  /// Itens de navegação do Modo Jogador
+  /// Itens internos da Arena Tsurus (Modo Jogador)
   static const List<SidebarNavItem> playerNavItems = [
     SidebarNavItem(
       label: 'Início',
@@ -49,6 +49,15 @@ class DesktopSidebar extends StatelessWidget {
       label: 'Membros',
       icon: Icons.groups_rounded,
       routePath: '/members',
+    ),
+  ];
+
+  /// Itens externos / fora da organização Tsurus (exclusivo do Modo Jogador)
+  static const List<SidebarNavItem> externalPlayerNavItems = [
+    SidebarNavItem(
+      label: 'Cenário Pro',
+      icon: Icons.live_tv_rounded,
+      routePath: '/pro-matches',
     ),
   ];
 
@@ -81,9 +90,8 @@ class DesktopSidebar extends StatelessWidget {
         return ValueListenableBuilder<AppMode>(
           valueListenable: AppModeState.currentMode,
           builder: (context, activeMode, _) {
-            final activeItems = (canManage && activeMode == AppMode.admin)
-                ? adminNavItems
-                : playerNavItems;
+            final isAdminView = canManage && activeMode == AppMode.admin;
+            final activeItems = isAdminView ? adminNavItems : playerNavItems;
 
             return Container(
               width: 270,
@@ -112,13 +120,37 @@ class DesktopSidebar extends StatelessWidget {
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      children: activeItems.map((item) {
-                        final isSelected = currentRoute == item.routePath ||
-                            (item.routePath != '/' &&
-                                currentRoute.startsWith(item.routePath));
+                      children: [
+                        if (!isAdminView) _buildSectionLabel('COMUNIDADE TSURUS'),
+                        ...activeItems.map((item) {
+                          final isSelected = currentRoute == item.routePath ||
+                              (item.routePath != '/' &&
+                                  currentRoute.startsWith(item.routePath));
 
-                        return _buildNavItem(context, item, isSelected);
-                      }).toList(),
+                          return _buildNavItem(context, item, isSelected);
+                        }),
+
+                        // Seção separada para o cenário competitivo mundial (exclusiva do Modo Jogador)
+                        if (!isAdminView) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 10,
+                            ),
+                            child: Divider(
+                              color: AppColors.border.withValues(alpha: 0.75),
+                              height: 1,
+                            ),
+                          ),
+                          _buildSectionLabel('MUNDO DOTA 2'),
+                          ...externalPlayerNavItems.map((item) {
+                            final isSelected = currentRoute == item.routePath ||
+                                currentRoute.startsWith(item.routePath);
+
+                            return _buildNavItem(context, item, isSelected);
+                          }),
+                        ],
+                      ],
                     ),
                   ),
 
@@ -240,6 +272,21 @@ class DesktopSidebar extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
+          color: AppColors.textSecondary.withValues(alpha: 0.7),
         ),
       ),
     );

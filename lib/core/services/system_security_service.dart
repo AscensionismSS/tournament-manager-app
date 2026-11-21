@@ -33,10 +33,10 @@ class SystemSecurityService {
 
   /// Inicializa ouvintes e carrega as configurações do backend
   Future<void> init() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
-
-    SignalRService.instance.addSecuritySettingsListener(_onSignalRSettingsReceived);
+    if (!_isInitialized) {
+      _isInitialized = true;
+      SignalRService.instance.addSecuritySettingsListener(_onSignalRSettingsReceived);
+    }
     await fetchSettings();
   }
 

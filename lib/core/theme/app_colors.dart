@@ -45,6 +45,13 @@ class AppColors {
   // 7. Tokens de Ação Especiais
   static const Color buttonDarkText = Color(0xFF0F1117); // Texto escuro de alto contraste sobre botão claro
 
+  // 8. Tokens de Plataformas de Streaming & Tiers (Cenário Pro)
+  static const Color streamTwitch = Color(0xFF9146FF); // Roxo oficial Twitch
+  static const Color streamYoutube = Color(0xFFFF0000); // Vermelho oficial YouTube
+  static const Color streamKick = Color(0xFF53FC18); // Verde neon oficial Kick
+  static const Color proTierMajor = Color(0xFFF5B301); // Dourado premium para Tier S (MAJOR)
+  static const Color proTierA = Color(0xFF38BDF8); // Azul/ciano para Pro Tier A
+
   // Aliases semânticos para compatibilidade universal
   static const Color textPrimary = onBackground;
   static const Color textSecondary = onSurface;

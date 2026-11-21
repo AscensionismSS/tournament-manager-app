@@ -12,6 +12,8 @@ abstract final class AdminMembersDialogs {
     AdminMembersController controller,
     MemberDto member,
   ) async {
+    if (member.isRootOwner) return;
+
     final willDeactivate = member.isActive;
     final reason = await AppPromptDialog.show(
       context,

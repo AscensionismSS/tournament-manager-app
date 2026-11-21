@@ -94,7 +94,7 @@ class _UserProfileMenuState extends State<UserProfileMenu> {
                 context,
                 currentProfile: profile,
               );
-            } else if (value == 'security') {
+            } else if (value == 'security' && profile?.isRootOwner == true) {
               SystemSecurityDialog.show(context);
             }
           },
@@ -272,8 +272,8 @@ class _UserProfileMenuState extends State<UserProfileMenu> {
                 ),
               ),
 
-            // 5. Opção de Segurança do Sistema (exclusivo para SuperAdmin)
-            if (profile?.isSuperAdmin == true)
+            // 5. Opção de Segurança do Sistema (exclusivo para Proprietário Raiz)
+            if (profile?.isRootOwner == true)
               const PopupMenuItem(
                 value: 'security',
                 child: Row(

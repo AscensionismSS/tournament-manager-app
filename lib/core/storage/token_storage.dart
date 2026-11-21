@@ -72,6 +72,9 @@ class TokenStorage {
     // Impede que eventos externos sobrescrevam tokens de sessão
     rawData.remove('token');
     rawData.remove('refreshToken');
+    if (rawData.containsKey('IsRootOwner') && !rawData.containsKey('isRootOwner')) {
+      rawData['isRootOwner'] = rawData['IsRootOwner'];
+    }
 
     final updated = LoginResponse.fromJson({
       ...currentProfile?.toJson() ?? {},

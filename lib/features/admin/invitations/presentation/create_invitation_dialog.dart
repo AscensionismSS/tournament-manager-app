@@ -38,6 +38,7 @@ class _CreateInvitationDialogState extends State<CreateInvitationDialog> {
   int _selectedRoleIndex = 0; // 0 = User, 1 = TournamentAdmin, 2 = SuperAdmin
   int _selectedHours = 24; // 24, 48 ou 72
   bool _isSuperAdmin = false;
+  bool _isRootOwner = false;
   bool _isSubmitting = false;
 
   static const List<int> _allowedHours = [24, 48, 72];
@@ -53,6 +54,7 @@ class _CreateInvitationDialogState extends State<CreateInvitationDialog> {
     if (mounted) {
       setState(() {
         _isSuperAdmin = profile?.isSuperAdmin ?? false;
+        _isRootOwner = profile?.isRootOwner ?? false;
       });
     }
   }
@@ -174,7 +176,7 @@ class _CreateInvitationDialogState extends State<CreateInvitationDialog> {
                   child: _buildRoleChip(
                     roleIndex: 2,
                     label: 'SuperAdmin',
-                    isLocked: !_isSuperAdmin,
+                    isLocked: !_isRootOwner,
                   ),
                 ),
               ],

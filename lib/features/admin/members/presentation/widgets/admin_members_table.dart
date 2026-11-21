@@ -447,18 +447,28 @@ class AdminMembersTable extends StatelessWidget {
           SizedBox(
             width: 90,
             child: Center(
-              child: AppIconButton(
-                icon: member.isActive ? Icons.lock_rounded : Icons.lock_open_rounded,
-                variant: member.isActive
-                    ? AppIconButtonVariant.danger
-                    : AppIconButtonVariant.success,
-                size: AppIconButtonSize.small,
-                isLoading: isProcessing,
-                tooltip: member.isActive
-                    ? 'Desativar membro (Bloquear Login)'
-                    : 'Ativar membro (Liberar Login)',
-                onPressed: isProcessing ? null : () => onToggleStatus(member),
-              ),
+              child: member.isRootOwner
+                  ? const Tooltip(
+                      message: 'Proprietário Raiz protegido',
+                      child: AppBadge(
+                        label: 'Raiz',
+                        customColor: AppColors.dotaGold,
+                        icon: Icons.verified_user_rounded,
+                        fontSize: 10.5,
+                      ),
+                    )
+                  : AppIconButton(
+                      icon: member.isActive ? Icons.lock_rounded : Icons.lock_open_rounded,
+                      variant: member.isActive
+                          ? AppIconButtonVariant.danger
+                          : AppIconButtonVariant.success,
+                      size: AppIconButtonSize.small,
+                      isLoading: isProcessing,
+                      tooltip: member.isActive
+                          ? 'Desativar membro (Bloquear Login)'
+                          : 'Ativar membro (Liberar Login)',
+                      onPressed: isProcessing ? null : () => onToggleStatus(member),
+                    ),
             ),
           ),
         ],

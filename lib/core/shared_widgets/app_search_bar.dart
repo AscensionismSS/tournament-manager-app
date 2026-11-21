@@ -42,6 +42,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
   bool _ownsController = false;
   Timer? _debounceTimer;
   String _lastSearchTerm = '';
+  String _termBeforeClear = '';
   bool _hasText = false;
 
   @override
@@ -82,7 +83,12 @@ class _AppSearchBarState extends State<AppSearchBar> {
     if (!hasTextNow) {
       // Cancela qualquer debounce pendente para evitar que uma busca antiga dispare
       // atrasada depois que o usuário clicou em "Limpar Filtros" externamente.
+      // Preserva [_termBeforeClear] para que [_onChanged] saiba se o usuário apagou
+      // manualmente via teclado e precise restaurar a lista chamando onSearch('').
       _debounceTimer?.cancel();
+      if (_lastSearchTerm.isNotEmpty) {
+        _termBeforeClear = _lastSearchTerm;
+      }
       _lastSearchTerm = '';
     }
     if (_hasText != hasTextNow) {
@@ -101,6 +107,22 @@ class _AppSearchBarState extends State<AppSearchBar> {
     }
 
     _debounceTimer?.cancel();
+    final trimmedNow = query.trim();
+
+    // Quando o usuário apaga tudo manualmente pelo teclado, restaura a lista imediatamente
+    if (trimmedNow.isEmpty) {
+      final hadActiveSearch =
+          _lastSearchTerm.isNotEmpty || _termBeforeClear.isNotEmpty;
+      _lastSearchTerm = '';
+      _termBeforeClear = '';
+      if (hadActiveSearch) {
+        widget.onSearch('');
+      }
+      return;
+    }
+
+    _termBeforeClear = '';
+
     if (widget.debounceDuration == Duration.zero) {
       final trimmed = _controller.text.trim();
       if (trimmed != _lastSearchTerm) {
@@ -123,6 +145,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
 
   void _handleClear() {
     _debounceTimer?.cancel();
+    _termBeforeClear = '';
     _controller.clear();
     setState(() {
       _hasText = false;

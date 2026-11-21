@@ -18,6 +18,7 @@ class MemberDto {
   final bool isTournamentEligible;
   final String? statusReason;
   final String? email;
+  final bool isRootOwner;
 
   const MemberDto({
     required this.userId,
@@ -36,6 +37,7 @@ class MemberDto {
     this.isTournamentEligible = true,
     this.statusReason,
     this.email,
+    this.isRootOwner = false,
   });
 
   /// Nome exibido: Nome no jogo (Steam Persona) primeiro; se não tiver, DisplayName
@@ -144,6 +146,10 @@ class MemberDto {
     final statusReason = target['statusReason']?.toString();
     final email = target['email']?.toString();
 
+    final rawRootOwner = target['isRootOwner'] ?? target['IsRootOwner'];
+    final bool isRootOwner = rawRootOwner == true ||
+        rawRootOwner?.toString().toLowerCase() == 'true';
+
     return MemberDto(
       userId: target['userId']?.toString() ?? '',
       displayName: target['displayName']?.toString() ?? 'Jogador',
@@ -161,6 +167,7 @@ class MemberDto {
       isTournamentEligible: isEligible,
       statusReason: statusReason,
       email: email,
+      isRootOwner: isRootOwner,
     );
   }
 }

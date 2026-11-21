@@ -227,15 +227,26 @@ class AdminMemberMobileCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Botão de Moderação Mobile
-            AppButton(
-              text: member.isActive ? 'Bloquear Login' : 'Ativar Login',
-              icon: member.isActive ? Icons.lock_rounded : Icons.lock_open_rounded,
-              size: AppButtonSize.small,
-              isFullWidth: true,
-              variant: member.isActive ? AppButtonVariant.danger : AppButtonVariant.secondary,
-              isLoading: isProcessing,
-              onPressed: isProcessing ? null : () => onToggleStatus(member),
-            ),
+            member.isRootOwner
+                ? const Tooltip(
+                    message: 'Proprietário Raiz protegido',
+                    child: AppBadge(
+                      label: 'Proprietário Raiz protegido',
+                      customColor: AppColors.dotaGold,
+                      icon: Icons.verified_user_rounded,
+                      width: double.infinity,
+                      height: 36,
+                    ),
+                  )
+                : AppButton(
+                    text: member.isActive ? 'Bloquear Login' : 'Ativar Login',
+                    icon: member.isActive ? Icons.lock_rounded : Icons.lock_open_rounded,
+                    size: AppButtonSize.small,
+                    isFullWidth: true,
+                    variant: member.isActive ? AppButtonVariant.danger : AppButtonVariant.secondary,
+                    isLoading: isProcessing,
+                    onPressed: isProcessing ? null : () => onToggleStatus(member),
+                  ),
           ],
         ),
       ),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/system_security_settings.dart';
 import '../../../core/navigation/app_mode.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
 import '../../../core/network/signalr_service.dart';
 import '../../../core/network/tournament_events_service.dart';
 import '../../../core/network/tournament_webhook_event_dto.dart';
@@ -43,6 +45,7 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSteamLinkStatus();
+      _syncUserProfileFromAuthMe();
       TournamentEventsService.instance.startGlobalStream();
       _sseSubscription =
           TournamentEventsService.instance.events.listen(_onTournamentEvent);
@@ -87,6 +90,14 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  Future<void> _syncUserProfileFromAuthMe() async {
+    try {
+      if (!await TokenStorage.hasToken()) return;
+      final data = await ApiClient.get(ApiEndpoints.authMe, requiresAuth: true);
+      await TokenStorage.updateSessionProfile(data);
+    } catch (_) {}
+  }
+
   Future<void> _checkSteamLinkStatus() async {
     if (_isSteamCheckDone || !mounted) return;
     _isSteamCheckDone = true;
@@ -129,6 +140,7 @@ class _MainShellState extends State<MainShell> {
       return 'Torneio • Visão Geral';
     }
     if (route.startsWith('/members') || route.startsWith('/teams')) return 'Membros';
+    if (route.startsWith('/pro-matches')) return 'Cenário Pro';
     return AppModeState.isAdmin ? 'Convites de Acesso' : 'Início / Dashboard';
   }
 

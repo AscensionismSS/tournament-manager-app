@@ -220,6 +220,11 @@ class ApiEndpoints {
   // ==========================================
   static String get systemSecuritySettings => '$baseUrl/admin/security-settings';
   static String get publicSecuritySettings => '$baseUrl/system/security-settings';
+
+  // ==========================================
+  // 9. Cenário Pro (ProMatchesController)
+  // ==========================================
+  static String get proMatchesOverview => '$baseUrl/pro-matches';
 }
 
 

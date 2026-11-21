@@ -19,6 +19,7 @@ class LoginResponse {
   final List<String> roles;
   final String? preferredRole;
   final String? preferredLandingPage; // "Player" | "Admin"
+  final bool isRootOwner;
 
   const LoginResponse({
     required this.userId,
@@ -38,6 +39,7 @@ class LoginResponse {
     this.roles = const [],
     this.preferredRole,
     this.preferredLandingPage = 'Player',
+    this.isRootOwner = false,
   });
 
   /// Permissão de Gestão: SuperAdmin ou TournamentAdmin
@@ -70,6 +72,7 @@ class LoginResponse {
     List<String>? roles,
     String? preferredRole,
     String? preferredLandingPage,
+    bool? isRootOwner,
   }) {
     return LoginResponse(
       userId: userId ?? this.userId,
@@ -89,6 +92,7 @@ class LoginResponse {
       roles: roles ?? this.roles,
       preferredRole: preferredRole ?? this.preferredRole,
       preferredLandingPage: preferredLandingPage ?? this.preferredLandingPage,
+      isRootOwner: isRootOwner ?? this.isRootOwner,
     );
   }
 
@@ -131,6 +135,10 @@ class LoginResponse {
         target['PreferredLandingPage']?.toString() ??
         'Player';
 
+    final rawRootOwner = target['isRootOwner'] ?? target['IsRootOwner'];
+    final bool isRootOwner = rawRootOwner == true ||
+        rawRootOwner?.toString().toLowerCase() == 'true';
+
     return LoginResponse(
       userId: target['userId']?.toString() ?? target['id']?.toString() ?? '',
       email: target['email']?.toString() ?? '',
@@ -168,6 +176,7 @@ class LoginResponse {
       roles: parsedRoles,
       preferredRole: target['preferredRole']?.toString(),
       preferredLandingPage: preferredLandingPage,
+      isRootOwner: isRootOwner,
     );
   }
 
@@ -189,5 +198,6 @@ class LoginResponse {
         'roles': roles,
         'preferredRole': preferredRole,
         'preferredLandingPage': preferredLandingPage,
+        'isRootOwner': isRootOwner,
       };
 }

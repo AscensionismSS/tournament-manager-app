@@ -101,6 +101,7 @@ class _RolesConfigDialogState extends State<RolesConfigDialog> {
   Future<void> _fetchLatestRolesFromBackend() async {
     try {
       final data = await ApiClient.get(ApiEndpoints.authMe, requiresAuth: true);
+      await TokenStorage.updateSessionProfile(data);
       if (!mounted) return;
 
       final rolesList = data['roles'] as List<dynamic>?;
