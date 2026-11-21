@@ -4,11 +4,11 @@ import '../../../../core/theme/theme.dart';
 import '../../models/pro_matches_dto.dart';
 import 'pro_stream_chip.dart';
 
-/// Card de partida profissional no padrão visual de [AppPlayerCard]:
+/// Card em lista de partida profissional com a estética do [AppPlayerCard]:
 /// - Superfície escura com hover glow dourado (ou neon ao vivo), sombra e marca d'água Tsurus;
-/// - Faixinha superior (28px) com status/horário à esquerda e formato (BO3/BO5) à direita;
-/// - Corpo compacto de confronto (Time A vs Placar/VS vs Time B);
-/// - Rodapé sutil com botões de transmissão externa.
+/// - Faixinha superior (30px) com status/horário à esquerda e formato (BO3/BO5) à direita;
+/// - Confronto horizontal largo (Time A vs Placar/VS vs Time B) no desktop e empilhado no mobile;
+/// - Rodapé sutil com espaço amplo para múltiplas transmissões (Twitch, YouTube, Kick) sem quebrar layout.
 class ProMatchCard extends StatefulWidget {
   final ProMatchDto match;
 
@@ -64,10 +64,10 @@ class _ProMatchCardState extends State<ProMatchCard> {
             children: [
               // Marca d'água oficial do símbolo da logo do site (Tsurus)
               Positioned(
-                right: -10,
-                top: -10,
-                width: 110,
-                height: 110,
+                right: -12,
+                top: -12,
+                width: 118,
+                height: 118,
                 child: IgnorePointer(
                   child: ClipOval(
                     child: Image.asset(
@@ -88,13 +88,23 @@ class _ProMatchCardState extends State<ProMatchCard> {
                   // 1. Faixinha no Topo (Status/Horário à esquerda + Formato BO3/BO5 à direita)
                   _MatchTopStrip(match: match),
 
-                  // 2. Corpo do Confronto
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    child: _buildMatchupRow(match, isLive),
+                  // 2. Corpo do Confronto (largo no desktop, compacto no mobile)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 520;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: isCompact
+                            ? _buildCompactMatchup(match, isLive)
+                            : _buildWideMatchup(match, isLive),
+                      );
+                    },
                   ),
 
-                  // 3. Rodapé Sutil de Transmissões
+                  // 3. Rodapé Sutil de Transmissões (comporta várias plataformas lado a lado)
                   _MatchStreamsFooter(match: match),
                 ],
               ),
@@ -105,28 +115,87 @@ class _ProMatchCardState extends State<ProMatchCard> {
     );
   }
 
-  Widget _buildMatchupRow(ProMatchDto match, bool isLive) {
+  Widget _buildWideMatchup(ProMatchDto match, bool isLive) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: _ProTeamBadgeColumn(team: match.teamA),
+          child: _ProTeamRow(
+            team: match.teamA,
+            alignRight: true,
+          ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: _buildCenterVersus(match, isLive),
-        ),
+        const SizedBox(width: 18),
+        _buildCenterBadge(match, isLive),
+        const SizedBox(width: 18),
         Expanded(
-          child: _ProTeamBadgeColumn(team: match.teamB),
+          child: _ProTeamRow(
+            team: match.teamB,
+            alignRight: false,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildCenterVersus(ProMatchDto match, bool isLive) {
+  Widget _buildCompactMatchup(ProMatchDto match, bool isLive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _ProTeamRow(
+                team: match.teamA,
+                alignRight: false,
+              ),
+            ),
+            if (isLive)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text(
+                  '${match.scoreTeamA}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.onBackground,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _ProTeamRow(
+                team: match.teamB,
+                alignRight: false,
+              ),
+            ),
+            if (isLive)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text(
+                  '${match.scoreTeamB}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.onBackground,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCenterBadge(ProMatchDto match, bool isLive) {
     if (isLive) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(minWidth: 74),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: AppColors.primaryNeon.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
@@ -137,10 +206,11 @@ class _ProMatchCardState extends State<ProMatchCard> {
         ),
         child: Text(
           match.scoreLabel,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
+            letterSpacing: 1.4,
             color: AppColors.onBackground,
           ),
         ),
@@ -148,9 +218,9 @@ class _ProMatchCardState extends State<ProMatchCard> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.canvasSurface.withValues(alpha: 0.75),
+        color: AppColors.canvasSurface.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.border.withValues(alpha: 0.65),
@@ -161,7 +231,7 @@ class _ProMatchCardState extends State<ProMatchCard> {
         'VS',
         style: TextStyle(
           fontFamily: 'Oswald',
-          fontSize: 12.5,
+          fontSize: 13,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.0,
           color: AppColors.dotaGold,
@@ -171,7 +241,7 @@ class _ProMatchCardState extends State<ProMatchCard> {
   }
 }
 
-/// Faixinha superior do card (28px), espelhando o padrão visual de [AppPlayerCard].
+/// Faixinha superior do card (30px), espelhando o padrão visual de [AppPlayerCard].
 class _MatchTopStrip extends StatelessWidget {
   final ProMatchDto match;
 
@@ -181,7 +251,7 @@ class _MatchTopStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: AppColors.canvasSurface.withValues(alpha: 0.58),
         border: Border(
@@ -229,7 +299,7 @@ class _MatchTopStrip extends StatelessWidget {
           if (match.isLive) const Spacer(),
           if (match.hasFormat)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.surfaceHighlight.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(4),
@@ -254,57 +324,68 @@ class _MatchTopStrip extends StatelessWidget {
   }
 }
 
-/// Bloco de exibição de uma equipe (emblema circular em destaque + nome).
-class _ProTeamBadgeColumn extends StatelessWidget {
+/// Exibição horizontal de uma equipe (nome + emblema circular).
+class _ProTeamRow extends StatelessWidget {
   final ProTeamDto team;
+  final bool alignRight;
 
-  const _ProTeamBadgeColumn({required this.team});
+  const _ProTeamRow({
+    required this.team,
+    required this.alignRight,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.secondary.withValues(alpha: 0.16),
-            border: Border.all(
-              color: AppColors.borderHighlight.withValues(alpha: 0.85),
-              width: 1.2,
-            ),
+    final logo = _buildTeamLogo();
+    final text = Flexible(
+      child: Tooltip(
+        message: team.name,
+        waitDuration: const Duration(milliseconds: 500),
+        child: Text(
+          team.name,
+          textAlign: alignRight ? TextAlign.right : TextAlign.left,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppColors.onBackground,
           ),
-          child: team.hasLogo
-              ? ClipOval(
-                  child: Image.network(
-                    team.logoUrl!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => _buildAcronymFallback(),
-                  ),
-                )
-              : _buildAcronymFallback(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 8),
-        Tooltip(
-          message: team.name,
-          waitDuration: const Duration(milliseconds: 500),
-          child: Text(
-            team.name,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: AppColors.onBackground,
-              height: 1.15,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+      ),
+    );
+
+    return Row(
+      mainAxisAlignment:
+          alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: alignRight
+          ? [text, const SizedBox(width: 12), logo]
+          : [logo, const SizedBox(width: 12), text],
+    );
+  }
+
+  Widget _buildTeamLogo() {
+    return Container(
+      width: 38,
+      height: 38,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.secondary.withValues(alpha: 0.16),
+        border: Border.all(
+          color: AppColors.borderHighlight.withValues(alpha: 0.85),
+          width: 1.2,
         ),
-      ],
+      ),
+      child: team.hasLogo
+          ? ClipOval(
+              child: Image.network(
+                team.logoUrl!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => _buildAcronymFallback(),
+              ),
+            )
+          : _buildAcronymFallback(),
     );
   }
 
@@ -313,7 +394,7 @@ class _ProTeamBadgeColumn extends StatelessWidget {
       child: Text(
         team.displayAcronym,
         style: const TextStyle(
-          fontSize: 10.5,
+          fontSize: 9.5,
           fontWeight: FontWeight.w900,
           color: AppColors.dotaGoldLight,
         ),
@@ -324,7 +405,7 @@ class _ProTeamBadgeColumn extends StatelessWidget {
   }
 }
 
-/// Rodapé compacto de streams no estilo sutil do [AppPlayerCard].
+/// Rodapé sutil de streams no estilo do [AppPlayerCard].
 class _MatchStreamsFooter extends StatelessWidget {
   final ProMatchDto match;
 
@@ -333,7 +414,7 @@ class _MatchStreamsFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
         color: AppColors.canvasSurface.withValues(alpha: 0.35),
         border: Border(
@@ -345,12 +426,32 @@ class _MatchStreamsFooter extends StatelessWidget {
       ),
       child: match.hasStreams
           ? Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 8,
+              runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
-              children: match.streams
-                  .map((stream) => ProStreamChip(stream: stream))
-                  .toList(growable: false),
+              children: [
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.podcasts_rounded,
+                      size: 13.5,
+                      color: AppColors.textSecondary,
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'ASSISTIR:',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                ...match.streams.map((stream) => ProStreamChip(stream: stream)),
+              ],
             )
           : Row(
               children: [

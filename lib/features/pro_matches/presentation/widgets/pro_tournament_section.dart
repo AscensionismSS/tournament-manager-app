@@ -93,7 +93,7 @@ class ProTournamentSection extends StatelessWidget {
                         '${liveMatches.length} ${liveMatches.length == 1 ? "partida" : "partidas"}',
                   ),
                   const SizedBox(height: 12),
-                  _buildResponsiveMatchGrid(liveMatches),
+                  _buildMatchesList(liveMatches),
                 ],
 
                 if (liveMatches.isNotEmpty && upcomingMatches.isNotEmpty) ...[
@@ -109,7 +109,7 @@ class ProTournamentSection extends StatelessWidget {
                         '${upcomingMatches.length} ${upcomingMatches.length == 1 ? "partida" : "partidas"}',
                   ),
                   const SizedBox(height: 12),
-                  _buildResponsiveMatchGrid(upcomingMatches),
+                  _buildMatchesList(upcomingMatches),
                 ],
               ],
             ),
@@ -119,34 +119,21 @@ class ProTournamentSection extends StatelessWidget {
     );
   }
 
-  Widget _buildResponsiveMatchGrid(List<ProMatchDto> matches) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const double spacing = 14.0;
-        final double maxWidth = constraints.maxWidth;
-
-        final int columns = maxWidth >= 1040
-            ? 3
-            : maxWidth >= 660
-                ? 2
-                : 1;
-
-        final double cardWidth =
-            (maxWidth - (spacing * (columns - 1))) / columns;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: matches
-              .map(
-                (match) => SizedBox(
-                  width: cardWidth,
-                  child: ProMatchCard(match: match),
-                ),
-              )
-              .toList(growable: false),
-        );
-      },
+  Widget _buildMatchesList(List<ProMatchDto> matches) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: matches
+          .asMap()
+          .entries
+          .map(
+            (entry) => Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.key == matches.length - 1 ? 0 : 12,
+              ),
+              child: ProMatchCard(match: entry.value),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 

@@ -13,6 +13,7 @@ import '../../../core/shared_widgets/shared_widgets.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/theme.dart';
 import '../../auth/presentation/steam_config_dialog.dart';
+import '../../pro_matches/controllers/pro_matches_controller.dart';
 import 'desktop_sidebar.dart';
 import 'desktop_top_bar.dart';
 
@@ -46,6 +47,7 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSteamLinkStatus();
       _syncUserProfileFromAuthMe();
+      ProMatchesController.syncLiveIndicator();
       TournamentEventsService.instance.startGlobalStream();
       _sseSubscription =
           TournamentEventsService.instance.events.listen(_onTournamentEvent);

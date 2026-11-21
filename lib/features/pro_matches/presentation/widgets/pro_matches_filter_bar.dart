@@ -26,7 +26,9 @@ class ProMatchesFilterBar extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 760;
+        final maxWidth = constraints.maxWidth;
+        final isMobile = maxWidth < 720;
+        final isCompactDesktop = maxWidth < 940;
 
         if (isMobile) {
           return Column(
@@ -87,12 +89,15 @@ class ProMatchesFilterBar extends StatelessWidget {
                   else
                     const Spacer(),
                   const SizedBox(width: 10),
-                  _buildRefreshButton(),
+                  _buildRefreshButton(overview?.formattedFetchedAt),
                 ],
               ),
             ],
           );
         }
+
+        final double levelWidth = isCompactDesktop ? 185 : 210;
+        final double tournamentWidth = isCompactDesktop ? 215 : 235;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -111,7 +116,7 @@ class ProMatchesFilterBar extends StatelessWidget {
             Row(
               children: [
                 SizedBox(
-                  width: 215,
+                  width: levelWidth,
                   child: AppSelectBox<ProMatchFilter>(
                     value: controller.activeFilter,
                     placeholder: 'Todos os Níveis',
@@ -126,7 +131,7 @@ class ProMatchesFilterBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 SizedBox(
-                  width: 240,
+                  width: tournamentWidth,
                   child: AppSelectBox<String?>(
                     value: controller.selectedLeagueName,
                     placeholder: 'Todos os Campeonatos',
@@ -146,11 +151,13 @@ class ProMatchesFilterBar extends StatelessWidget {
                   onClear: controller.clearFilters,
                 ),
                 const Spacer(),
-                if (overview != null && overview.fetchedAtUtc != null) ...[
+                if (!isCompactDesktop &&
+                    overview != null &&
+                    overview.fetchedAtUtc != null) ...[
                   _buildLastUpdated(overview.formattedFetchedAt),
                   const SizedBox(width: 14),
                 ],
-                _buildRefreshButton(),
+                _buildRefreshButton(overview?.formattedFetchedAt),
               ],
             ),
           ],
@@ -185,11 +192,16 @@ class ProMatchesFilterBar extends StatelessWidget {
     );
   }
 
-  Widget _buildRefreshButton() {
+  Widget _buildRefreshButton(String? formattedFetchedAt) {
+    final String baseTooltip = controller.isOnCooldown
+        ? 'Aguarde o intervalo para evitar excesso de requisições'
+        : 'Buscar atualizações de partidas ao vivo';
+    final String tooltip = formattedFetchedAt != null
+        ? '$baseTooltip (Atualizado: $formattedFetchedAt)'
+        : baseTooltip;
+
     return Tooltip(
-      message: controller.isOnCooldown
-          ? 'Aguarde o intervalo para evitar excesso de requisições'
-          : 'Buscar atualizações de partidas ao vivo',
+      message: tooltip,
       child: AppButton.outline(
         text: controller.refreshButtonLabel,
         icon: controller.isOnCooldown

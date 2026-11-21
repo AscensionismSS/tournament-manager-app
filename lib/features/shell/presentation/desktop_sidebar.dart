@@ -5,6 +5,7 @@ import '../../../core/shared_widgets/shared_widgets.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/theme.dart';
 import '../../auth/models/login_response.dart';
+import '../../pro_matches/controllers/pro_matches_controller.dart';
 import 'user_profile_menu.dart';
 
 /// Item de menu para a barra lateral
@@ -329,6 +330,33 @@ class DesktopSidebar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (item.routePath == '/pro-matches')
+            ValueListenableBuilder<int>(
+              valueListenable: ProMatchesController.liveMatchesCountNotifier,
+              builder: (context, liveCount, _) {
+                if (liveCount <= 0) return const SizedBox.shrink();
+                return Tooltip(
+                  message:
+                      '$liveCount ${liveCount == 1 ? "partida ao vivo" : "partidas ao vivo"}',
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(left: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primaryNeon,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryNeon.withValues(alpha: 0.75),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

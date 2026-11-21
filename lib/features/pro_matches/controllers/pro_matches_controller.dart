@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/shared_widgets/app_select_box.dart';
+import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/theme.dart';
 import '../models/pro_matches_dto.dart';
 
@@ -57,6 +58,22 @@ enum ProMatchFilter {
 /// por campeonato, cooldown anti-flood no botão Atualizar e ciclo de vida seguro.
 class ProMatchesController extends ChangeNotifier {
   static const int refreshCooldownSeconds = 30;
+
+  /// Notificador global da quantidade de partidas Pro ao vivo (para indicador no menu).
+  static final ValueNotifier<int> liveMatchesCountNotifier = ValueNotifier<int>(0);
+
+  /// Sincroniza silenciosamente o indicador de partidas ao vivo no menu lateral.
+  static Future<void> syncLiveIndicator() async {
+    try {
+      if (!await TokenStorage.hasToken()) return;
+      final response = await ApiClient.get(
+        ApiEndpoints.proMatchesOverview,
+        requiresAuth: true,
+      );
+      final overview = ProMatchesOverviewDto.fromJson(response);
+      liveMatchesCountNotifier.value = overview.totalLiveCount;
+    } catch (_) {}
+  }
 
   final TextEditingController searchController = TextEditingController();
 
@@ -199,6 +216,7 @@ class ProMatchesController extends ChangeNotifier {
         requiresAuth: true,
       );
       _overview = ProMatchesOverviewDto.fromJson(response);
+      liveMatchesCountNotifier.value = _overview?.totalLiveCount ?? 0;
 
       // Se a liga selecionada não existe mais no novo snapshot, reseta filtro
       if (_selectedLeagueName != null &&
